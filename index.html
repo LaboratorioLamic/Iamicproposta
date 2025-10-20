@@ -396,6 +396,11 @@
             }, 3000);
         }
 
+        function normalizeDecimalInput(value) {
+            // Replace comma with period and remove any non-numeric characters except period
+            return value.replace(',', '.').replace(/[^0-9.]/g, '');
+        }
+
         function showModal() {
             document.getElementById('password-modal').style.display = 'flex';
             document.getElementById('password-input').value = '';
@@ -538,18 +543,18 @@
                 </tr>
                 <tr class="summary-row">
                     <td colspan="3">Totais - ${Object.keys(selectedExams).length} Exames</td>
-                    <td id="totalValor"></td>
-                    <td id="totalProposta"></td>
-                    <td id="totalCusto"></td>
+                    <td id="totalValor">R$ 0.00</td>
+                    <td id="totalProposta">R$ 0.00</td>
+                    <td id="totalCusto">R$ 0.00</td>
                     <td><input type="text" class="tax-input" value="${taxRate}" style="width: 60px;"></td>
-                    <td id="totalDesconto"></td>
-                    <td id="totalMargem"></td>
+                    <td id="totalDesconto">0.00%</td>
+                    <td id="totalMargem">0.00%</td>
                     <td></td>
                 </tr>
             `;
             // Add event listener for tax rate input
             document.querySelector('.tax-input').addEventListener('input', (e) => {
-                const value = parseFloat(e.target.value);
+                const value = parseFloat(normalizeDecimalInput(e.target.value));
                 if (!isNaN(value) && value >= 0) {
                     taxRate = value;
                     renderTable(Object.keys(selectedExams));
@@ -571,15 +576,15 @@
                 const data = selectedExams[exame] || { valor: 'N/A', custo: 'N/A', material: 'N/A', prazo: 'N/A', proposta: '' };
                 const displayValor = data.valor !== 'N/A' && !isNaN(data.valor) ? data.valor.toFixed(2) : '0.00';
                 const displayCusto = data.custo !== 'N/A' && !isNaN(data.custo) ? data.custo.toFixed(2) : '0.00';
-                const propostaNum = parseFloat(data.proposta) || 0;
+                const propostaNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
                 const imposto = (propostaNum * taxRate / 100).toFixed(2);
                 const desconto = data.proposta && data.valor ? (((data.valor - propostaNum) / data.valor) * 100).toFixed(2) : '0.00';
                 const margem = data.proposta ? (((propostaNum - (propostaNum * taxRate / 100) - data.custo) / propostaNum) * 100).toFixed(2) : '0.00';
 
-                if (data.custo !== 'N/A') totalCusto += parseFloat(data.custo);
-                if (data.valor !== 'N/A') totalValor += parseFloat(data.valor);
+                if (data.custo !== 'N/A' && !isNaN(data.custo)) totalCusto += parseFloat(data.custo);
+                if (data.valor !== 'N/A' && !isNaN(data.valor)) totalValor += parseFloat(data.valor);
                 if (propostaNum) totalProposta += propostaNum;
-                if (propostaNum) {
+                if (propostaNum && data.custo !== 'N/A' && !isNaN(data.custo)) {
                     totalMargemNum += (propostaNum - (propostaNum * taxRate / 100) - data.custo);
                     totalPropostaForMargem += propostaNum;
                 }
@@ -604,7 +609,7 @@
             });
 
             // Update summary row with null checks
-            const totalDesconto = totalValor && totalProposta ? (((totalValor - totalProposta) / totalValor) * 100).toFixed(2) : '0.00';
+            const totalDesconto = (totalValor && totalProposta) ? (((totalValor - totalProposta) / totalValor) * 100).toFixed(2) : '0.00';
             const totalMargem = totalPropostaForMargem ? ((totalMargemNum / totalPropostaForMargem) * 100).toFixed(2) : '0.00';
 
             const totalCustoElement = document.getElementById('totalCusto');
@@ -619,20 +624,17 @@
             if (totalDescontoElement) totalDescontoElement.textContent = `${totalDesconto}%`;
             if (totalMargemElement) totalMargemElement.textContent = `${totalMargem}%`;
 
-            // Re-render header to update exam count
-            renderTableHeader();
-
             // Add event listeners to proposta inputs
             document.querySelectorAll('.proposta-input').forEach(input => {
                 input.addEventListener('blur', (e) => {
                     const exame = e.target.dataset.exame;
-                    selectedExams[exame].proposta = e.target.value;
+                    selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
                     renderTable(Object.keys(selectedExams));
                 });
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         const exame = e.target.dataset.exame;
-                        selectedExams[exame].proposta = e.target.value;
+                        selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
                         renderTable(Object.keys(selectedExams));
                     }
                 });
@@ -653,7 +655,7 @@
 
         // Add event listener for margin limit input
         document.getElementById('marginLimitInput').addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
+            const value = parseFloat(normalizeDecimalInput(e.target.value));
             if (!isNaN(value)) {
                 marginThreshold = value;
                 renderTable(Object.keys(selectedExams));
@@ -762,7 +764,7 @@
             let totalProposta = 0;
             const rows = Object.keys(selectedExams).map(exame => {
                 const data = selectedExams[exame];
-                const propostaNum = parseFloat(data.proposta) || 0;
+                const propostaNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
                 if (propostaNum) totalProposta += propostaNum;
                 return [
                     exame,
