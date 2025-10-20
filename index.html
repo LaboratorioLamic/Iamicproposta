@@ -187,6 +187,30 @@
             border-radius: 4px;
             font-size: 14px;
         }
+        .l2l-checkbox-container {
+            position: absolute;
+            top: 60px;
+            right: 200px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            display: none;
+        }
+        .l2l-checkbox-container label {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        .l2l-checkbox-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
         .modal {
             display: none;
             position: fixed;
@@ -329,6 +353,12 @@
                 right: auto;
                 margin: 10px auto;
             }
+            .l2l-checkbox-container {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin: 10px auto;
+            }
         }
     </style>
 </head>
@@ -359,6 +389,10 @@
         <i class="fas fa-download download-icon" id="downloadIcon" style="display: none;"></i>
         <i class="fas fa-spinner loading-download" id="loadingDownloadIcon"></i>
     </div>
+    <div class="l2l-checkbox-container">
+        <label for="l2lCheckbox">L2L</label>
+        <input type="checkbox" id="l2lCheckbox">
+    </div>
     <div class="margin-limit-container">
         <label for="marginLimitInput">Margem (%)</label>
         <input type="text" id="marginLimitInput" class="margin-input" value="15" placeholder="%">
@@ -372,20 +406,20 @@
     </table>
 
     <script>
-        const sheetsUrl = 'https://script.google.com/macros/s/AKfycbwWhBw1o16D7SXtYMPcnxUcTXjQ3YOzZKBToh-jgX_2pRJ5gkLrMbXuHSNaDmpNoHLL9g/exec';
+        const sheetsUrl = 'https://script.google.com/macros/s/AKfycby_zNp22_d9KEsaSC-llIxRVuvkx16P85BQ6FRfiqx3UrKCqwXp7cIlHPRpG7_kwK-9LQ/exec';
         const passwordBinId = '68d7e57bd0ea881f408cf33b';
         const masterKey = '$2a$10$2elKW8TT6o.K3V176efqwu7kOfD1PnS3D/F0s4Tczc3MYmaU.N1bi';
         const testData = [
-            { Exame: 'Nenhum Exame Carregado', Valor: null, Custo: null, Material: '-', Prazo: '-' },
+            { Exame: 'Nenhum Exame Carregado', Valor: null, Custo: null, Custo2: null, Material: '-', Prazo: '-' },
         ];
         let examsData = {};
         let selectedExams = {};
-        let taxRate = 8.10; // Default tax rate in percentage
-        let marginThreshold = 15; // Default margin threshold in percentage
+        let taxRate = 8.10;
+        let marginThreshold = 15;
         let loginAttempts = 0;
         let isLocked = false;
+        let useL2LCost = false;
 
-        // Utility functions
         function showWarning(message) {
             const warningMessage = document.getElementById('warning-message');
             const warningText = document.getElementById('warning-text');
@@ -397,7 +431,6 @@
         }
 
         function normalizeDecimalInput(value) {
-            // Replace comma with period and remove any non-numeric characters except period
             return value.replace(',', '.').replace(/[^0-9.]/g, '');
         }
 
@@ -408,14 +441,15 @@
             document.getElementById('lockout-message').style.display = 'none';
             document.getElementById('progress-bar-container').style.display = 'none';
             document.getElementById('password-submit').disabled = isLocked;
+            document.querySelector('.l2l-checkbox-container').style.display = 'none';
         }
 
         function hideModal() {
             document.getElementById('password-modal').style.display = 'none';
-            // Show main content
             document.querySelector('.logo-container').style.display = 'block';
             document.querySelector('.search-container').style.display = 'block';
             document.querySelector('.margin-limit-container').style.display = 'flex';
+            document.querySelector('.l2l-checkbox-container').style.display = 'flex';
             document.querySelector('table').style.display = 'table';
         }
 
@@ -464,7 +498,6 @@
             }, 10000);
         }
 
-        // Password submit handler
         document.getElementById('password-submit').addEventListener('click', async () => {
             if (isLocked) return;
             const password = document.getElementById('password-input').value;
@@ -489,7 +522,6 @@
             await loadData();
         });
 
-        // Load data from Google Sheets
         async function loadData() {
             document.getElementById('loadingOverlay').style.display = 'flex';
             let data;
@@ -505,16 +537,16 @@
                 data = testData;
             }
 
-            // Process data
             examsData = {};
             data.forEach(row => {
                 const exame = row.Exame;
                 const valor = parseFloat(row.Valor);
                 const custo = parseFloat(row.Custo);
+                const custo2 = parseFloat(row.Custo2);
                 const material = row.Material;
                 const prazo = row.Prazo;
                 if (exame && !isNaN(valor)) {
-                    examsData[exame] = { valor, custo, material, prazo, proposta: '' };
+                    examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
                 }
             });
 
@@ -552,7 +584,6 @@
                     <td></td>
                 </tr>
             `;
-            // Add event listener for tax rate input
             document.querySelector('.tax-input').addEventListener('input', (e) => {
                 const value = parseFloat(normalizeDecimalInput(e.target.value));
                 if (!isNaN(value) && value >= 0) {
@@ -563,133 +594,128 @@
         }
 
         function renderTable(exams) {
-    const body = document.getElementById('tableBody');
-    body.innerHTML = '';
-    let totalCusto = 0;
-    let totalValor = 0;
-    let totalProposta = 0;
-    let totalMargemNum = 0;
-    let totalPropostaForMargem = 0;
+            const body = document.getElementById('tableBody');
+            body.innerHTML = '';
+            let totalCusto = 0;
+            let totalValor = 0;
+            let totalProposta = 0;
+            let totalMargemNum = 0;
+            let totalPropostaForMargem = 0;
 
-    // Renderizar o cabeçalho com a contagem atualizada
-    const header = document.getElementById('tableHeader');
-    header.innerHTML = `
-        <tr>
-            <th>Exame</th>
-            <th>Material Biológico</th>
-            <th>Prazo</th>
-            <th>Valor</th>
-            <th>Proposta</th>
-            <th>Custo</th>
-            <th>Imposto (%)</th>
-            <th>Desconto (%)</th>
-            <th>Margem (%)</th>
-            <th></th>
-        </tr>
-        <tr class="summary-row">
-            <td colspan="3">Totais - ${exams.length} Exames</td>
-            <td id="totalValor">R$ 0.00</td>
-            <td id="totalProposta">R$ 0.00</td>
-            <td id="totalCusto">R$ 0.00</td>
-            <td><input type="text" class="tax-input" value="${taxRate}" style="width: 60px;"></td>
-            <td id="totalDesconto">0.00%</td>
-            <td id="totalMargem">0.00%</td>
-            <td></td>
-        </tr>
-    `;
+            const header = document.getElementById('tableHeader');
+            header.innerHTML = `
+                <tr>
+                    <th>Exame</th>
+                    <th>Material Biológico</th>
+                    <th>Prazo</th>
+                    <th>Valor</th>
+                    <th>Proposta</th>
+                    <th>Custo</th>
+                    <th>Imposto (%)</th>
+                    <th>Desconto (%)</th>
+                    <th>Margem (%)</th>
+                    <th></th>
+                </tr>
+                <tr class="summary-row">
+                    <td colspan="3">Totais - ${exams.length} Exames</td>
+                    <td id="totalValor">R$ 0.00</td>
+                    <td id="totalProposta">R$ 0.00</td>
+                    <td id="totalCusto">R$ 0.00</td>
+                    <td><input type="text" class="tax-input" value="${taxRate}" style="width: 60px;"></td>
+                    <td id="totalDesconto">0.00%</td>
+                    <td id="totalMargem">0.00%</td>
+                    <td></td>
+                </tr>
+            `;
 
-    // Adicionar event listener para o input de taxa
-    document.querySelector('.tax-input').addEventListener('input', (e) => {
-        const value = parseFloat(normalizeDecimalInput(e.target.value));
-        if (!isNaN(value) && value >= 0) {
-            taxRate = value;
-            renderTable(Object.keys(selectedExams));
+            document.querySelector('.tax-input').addEventListener('input', (e) => {
+                const value = parseFloat(normalizeDecimalInput(e.target.value));
+                if (!isNaN(value) && value >= 0) {
+                    taxRate = value;
+                    renderTable(Object.keys(selectedExams));
+                }
+            });
+
+            exams.forEach(exame => {
+                const row = document.createElement('tr');
+                const data = selectedExams[exame] || { valor: 'N/A', custo: 'N/A', custo2: 'N/A', material: 'N/A', prazo: 'N/A', proposta: '' };
+                const displayValor = data.valor !== 'N/A' && !isNaN(data.valor) ? data.valor.toFixed(2) : '0.00';
+                const currentCusto = useL2LCost ? (data.custo2 !== 'N/A' && !isNaN(data.custo2) ? data.custo2 : data.custo) : data.custo;
+                const displayCusto = currentCusto !== 'N/A' && !isNaN(currentCusto) ? currentCusto.toFixed(2) : '0.00';
+                const propostaNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
+                const imposto = (propostaNum * taxRate / 100).toFixed(2);
+                const desconto = data.proposta && data.valor ? (((data.valor - propostaNum) / data.valor) * 100).toFixed(2) : '0.00';
+                const margem = data.proposta ? (((propostaNum - (propostaNum * taxRate / 100) - currentCusto) / propostaNum) * 100).toFixed(2) : '0.00';
+
+                if (currentCusto !== 'N/A' && !isNaN(currentCusto)) totalCusto += parseFloat(currentCusto);
+                if (data.valor !== 'N/A' && !isNaN(data.valor)) totalValor += parseFloat(data.valor);
+                if (propostaNum) totalProposta += propostaNum;
+                if (propostaNum && currentCusto !== 'N/A' && !isNaN(currentCusto)) {
+                    totalMargemNum += (propostaNum - (propostaNum * taxRate / 100) - currentCusto);
+                    totalPropostaForMargem += propostaNum;
+                }
+
+                if (parseFloat(margem) < marginThreshold) {
+                    row.classList.add('low-margin');
+                }
+
+                row.innerHTML = `
+                    <td>${exame}</td>
+                    <td>${data.material || 'N/A'}</td>
+                    <td>${data.prazo || 'N/A'}</td>
+                    <td>R$ ${displayValor}</td>
+                    <td><input type="text" class="proposta-input" value="${data.proposta}" placeholder="R$" data-exame="${exame}"></td>
+                    <td>R$ ${displayCusto}</td>
+                    <td>R$ ${imposto}</td>
+                    <td>${desconto}%</td>
+                    <td>${margem}%</td>
+                    <td><i class="fas fa-trash delete-icon" data-exame="${exame}"></i></td>
+                `;
+                body.appendChild(row);
+            });
+
+            const totalDesconto = (totalValor && totalProposta) ? (((totalValor - totalProposta) / totalValor) * 100).toFixed(2) : '0.00';
+            const totalMargem = totalPropostaForMargem ? ((totalMargemNum / totalPropostaForMargem) * 100).toFixed(2) : '0.00';
+
+            const totalCustoElement = document.getElementById('totalCusto');
+            const totalValorElement = document.getElementById('totalValor');
+            const totalPropostaElement = document.getElementById('totalProposta');
+            const totalDescontoElement = document.getElementById('totalDesconto');
+            const totalMargemElement = document.getElementById('totalMargem');
+
+            if (totalCustoElement) totalCustoElement.textContent = `R$ ${totalCusto.toFixed(2)}`;
+            if (totalValorElement) totalValorElement.textContent = `R$ ${totalValor.toFixed(2)}`;
+            if (totalPropostaElement) totalPropostaElement.textContent = `R$ ${totalProposta.toFixed(2)}`;
+            if (totalDescontoElement) totalDescontoElement.textContent = `${totalDesconto}%`;
+            if (totalMargemElement) totalMargemElement.textContent = `${totalMargem}%`;
+
+            document.querySelectorAll('.proposta-input').forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    const exame = e.target.dataset.exame;
+                    selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
+                    renderTable(Object.keys(selectedExams));
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const exame = e.target.dataset.exame;
+                        selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
+                        renderTable(Object.keys(selectedExams));
+                    }
+                });
+            });
+
+            document.querySelectorAll('.delete-icon').forEach(icon => {
+                icon.addEventListener('click', (e) => {
+                    const exame = e.target.dataset.exame;
+                    delete selectedExams[exame];
+                    renderTable(Object.keys(selectedExams));
+                    if (Object.keys(selectedExams).length === 0) {
+                        document.getElementById('downloadIcon').style.display = 'none';
+                    }
+                });
+            });
         }
-    });
 
-    exams.forEach(exame => {
-        const row = document.createElement('tr');
-        const data = selectedExams[exame] || { valor: 'N/A', custo: 'N/A', material: 'N/A', prazo: 'N/A', proposta: '' };
-        const displayValor = data.valor !== 'N/A' && !isNaN(data.valor) ? data.valor.toFixed(2) : '0.00';
-        const displayCusto = data.custo !== 'N/A' && !isNaN(data.custo) ? data.custo.toFixed(2) : '0.00';
-        const propostaNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
-        const imposto = (propostaNum * taxRate / 100).toFixed(2);
-        const desconto = data.proposta && data.valor ? (((data.valor - propostaNum) / data.valor) * 100).toFixed(2) : '0.00';
-        const margem = data.proposta ? (((propostaNum - (propostaNum * taxRate / 100) - data.custo) / propostaNum) * 100).toFixed(2) : '0.00';
-
-        if (data.custo !== 'N/A' && !isNaN(data.custo)) totalCusto += parseFloat(data.custo);
-        if (data.valor !== 'N/A' && !isNaN(data.valor)) totalValor += parseFloat(data.valor);
-        if (propostaNum) totalProposta += propostaNum;
-        if (propostaNum && data.custo !== 'N/A' && !isNaN(data.custo)) {
-            totalMargemNum += (propostaNum - (propostaNum * taxRate / 100) - data.custo);
-            totalPropostaForMargem += propostaNum;
-        }
-
-        if (parseFloat(margem) < marginThreshold) {
-            row.classList.add('low-margin');
-        }
-
-        row.innerHTML = `
-            <td>${exame}</td>
-            <td>${data.material || 'N/A'}</td>
-            <td>${data.prazo || 'N/A'}</td>
-            <td>R$ ${displayValor}</td>
-            <td><input type="text" class="proposta-input" value="${data.proposta}" placeholder="R$" data-exame="${exame}"></td>
-            <td>R$ ${displayCusto}</td>
-            <td>R$ ${imposto}</td>
-            <td>${desconto}%</td>
-            <td>${margem}%</td>
-            <td><i class="fas fa-trash delete-icon" data-exame="${exame}"></i></td>
-        `;
-        body.appendChild(row);
-    });
-
-    // Atualizar linha de resumo
-    const totalDesconto = (totalValor && totalProposta) ? (((totalValor - totalProposta) / totalValor) * 100).toFixed(2) : '0.00';
-    const totalMargem = totalPropostaForMargem ? ((totalMargemNum / totalPropostaForMargem) * 100).toFixed(2) : '0.00';
-
-    const totalCustoElement = document.getElementById('totalCusto');
-    const totalValorElement = document.getElementById('totalValor');
-    const totalPropostaElement = document.getElementById('totalProposta');
-    const totalDescontoElement = document.getElementById('totalDesconto');
-    const totalMargemElement = document.getElementById('totalMargem');
-
-    if (totalCustoElement) totalCustoElement.textContent = `R$ ${totalCusto.toFixed(2)}`;
-    if (totalValorElement) totalValorElement.textContent = `R$ ${totalValor.toFixed(2)}`;
-    if (totalPropostaElement) totalPropostaElement.textContent = `R$ ${totalProposta.toFixed(2)}`;
-    if (totalDescontoElement) totalDescontoElement.textContent = `${totalDesconto}%`;
-    if (totalMargemElement) totalMargemElement.textContent = `${totalMargem}%`;
-
-    // Adicionar event listeners aos inputs de proposta
-    document.querySelectorAll('.proposta-input').forEach(input => {
-        input.addEventListener('blur', (e) => {
-            const exame = e.target.dataset.exame;
-            selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
-            renderTable(Object.keys(selectedExams));
-        });
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const exame = e.target.dataset.exame;
-                selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
-                renderTable(Object.keys(selectedExams));
-            }
-        });
-    });
-
-    // Adicionar event listeners aos ícones de exclusão
-    document.querySelectorAll('.delete-icon').forEach(icon => {
-        icon.addEventListener('click', (e) => {
-            const exame = e.target.dataset.exame;
-            delete selectedExams[exame];
-            renderTable(Object.keys(selectedExams));
-            if (Object.keys(selectedExams).length === 0) {
-                document.getElementById('downloadIcon').style.display = 'none';
-            }
-        });
-    });
-}
-
-        // Add event listener for margin limit input
         document.getElementById('marginLimitInput').addEventListener('input', (e) => {
             const value = parseFloat(normalizeDecimalInput(e.target.value));
             if (!isNaN(value)) {
@@ -698,7 +724,11 @@
             }
         });
 
-        // Autocomplete functionality
+        document.getElementById('l2lCheckbox').addEventListener('change', (e) => {
+            useL2LCost = e.target.checked;
+            renderTable(Object.keys(selectedExams));
+        });
+
         function showAutocomplete(query) {
             const autocompleteList = document.getElementById('autocompleteList');
             autocompleteList.innerHTML = '';
@@ -735,14 +765,12 @@
             showAutocomplete(e.target.value);
         });
 
-        // Hide autocomplete on click outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-container')) {
                 document.getElementById('autocompleteList').style.display = 'none';
             }
         });
 
-        // Download PDF function
         async function downloadPDF() {
             document.getElementById('downloadIcon').style.display = 'none';
             document.getElementById('loadingDownloadIcon').style.display = 'block';
@@ -754,7 +782,6 @@
             const title = document.querySelector('h1').textContent;
             let startY = 20;
 
-            // Load and add logo
             try {
                 const logoImg = new Image();
                 logoImg.crossOrigin = "anonymous";
@@ -787,7 +814,6 @@
                 console.warn('Logo load failed:', error);
             }
 
-            // Add header
             doc.setTextColor(44, 62, 80);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(18);
@@ -796,7 +822,6 @@
             doc.setFontSize(12);
             doc.text(title, 105, startY + 10, { align: 'center' });
 
-            // Prepare table data
             let totalProposta = 0;
             const rows = Object.keys(selectedExams).map(exame => {
                 const data = selectedExams[exame];
@@ -810,7 +835,6 @@
                 ];
             });
 
-            // Add summary row to PDF
             rows.push([
                 'Totais',
                 '',
@@ -818,7 +842,6 @@
                 `R$ ${totalProposta.toFixed(2)}`
             ]);
 
-            // Add table using autoTable
             doc.autoTable({
                 startY: startY + 20,
                 head: [['Exame', 'Material Biológico', 'Prazo', 'Proposta']],
@@ -832,10 +855,10 @@
                     fontStyle: 'normal'
                 },
                 columnStyles: {
-                    0: { cellWidth: 80 }, // Exame
-                    1: { cellWidth: 40 }, // Material
-                    2: { cellWidth: 30 }, // Prazo
-                    3: { cellWidth: 30 }  // Proposta
+                    0: { cellWidth: 80 },
+                    1: { cellWidth: 40 },
+                    2: { cellWidth: 30 },
+                    3: { cellWidth: 30 }
                 },
                 headStyles: { 
                     fillColor: [26, 43, 95],
@@ -858,7 +881,6 @@
 
         document.getElementById('downloadIcon').addEventListener('click', downloadPDF);
 
-        // Initialize on load
         window.addEventListener('load', () => {
             showModal();
         });
