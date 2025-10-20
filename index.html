@@ -563,95 +563,131 @@
         }
 
         function renderTable(exams) {
-            const body = document.getElementById('tableBody');
-            body.innerHTML = '';
-            let totalCusto = 0;
-            let totalValor = 0;
-            let totalProposta = 0;
-            let totalMargemNum = 0;
-            let totalPropostaForMargem = 0;
+    const body = document.getElementById('tableBody');
+    body.innerHTML = '';
+    let totalCusto = 0;
+    let totalValor = 0;
+    let totalProposta = 0;
+    let totalMargemNum = 0;
+    let totalPropostaForMargem = 0;
 
-            exams.forEach(exame => {
-                const row = document.createElement('tr');
-                const data = selectedExams[exame] || { valor: 'N/A', custo: 'N/A', material: 'N/A', prazo: 'N/A', proposta: '' };
-                const displayValor = data.valor !== 'N/A' && !isNaN(data.valor) ? data.valor.toFixed(2) : '0.00';
-                const displayCusto = data.custo !== 'N/A' && !isNaN(data.custo) ? data.custo.toFixed(2) : '0.00';
-                const propostaNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
-                const imposto = (propostaNum * taxRate / 100).toFixed(2);
-                const desconto = data.proposta && data.valor ? (((data.valor - propostaNum) / data.valor) * 100).toFixed(2) : '0.00';
-                const margem = data.proposta ? (((propostaNum - (propostaNum * taxRate / 100) - data.custo) / propostaNum) * 100).toFixed(2) : '0.00';
+    // Renderizar o cabeçalho com a contagem atualizada
+    const header = document.getElementById('tableHeader');
+    header.innerHTML = `
+        <tr>
+            <th>Exame</th>
+            <th>Material Biológico</th>
+            <th>Prazo</th>
+            <th>Valor</th>
+            <th>Proposta</th>
+            <th>Custo</th>
+            <th>Imposto (%)</th>
+            <th>Desconto (%)</th>
+            <th>Margem (%)</th>
+            <th></th>
+        </tr>
+        <tr class="summary-row">
+            <td colspan="3">Totais - ${exams.length} Exames</td>
+            <td id="totalValor">R$ 0.00</td>
+            <td id="totalProposta">R$ 0.00</td>
+            <td id="totalCusto">R$ 0.00</td>
+            <td><input type="text" class="tax-input" value="${taxRate}" style="width: 60px;"></td>
+            <td id="totalDesconto">0.00%</td>
+            <td id="totalMargem">0.00%</td>
+            <td></td>
+        </tr>
+    `;
 
-                if (data.custo !== 'N/A' && !isNaN(data.custo)) totalCusto += parseFloat(data.custo);
-                if (data.valor !== 'N/A' && !isNaN(data.valor)) totalValor += parseFloat(data.valor);
-                if (propostaNum) totalProposta += propostaNum;
-                if (propostaNum && data.custo !== 'N/A' && !isNaN(data.custo)) {
-                    totalMargemNum += (propostaNum - (propostaNum * taxRate / 100) - data.custo);
-                    totalPropostaForMargem += propostaNum;
-                }
-
-                if (parseFloat(margem) < marginThreshold) {
-                    row.classList.add('low-margin');
-                }
-
-                row.innerHTML = `
-                    <td>${exame}</td>
-                    <td>${data.material || 'N/A'}</td>
-                    <td>${data.prazo || 'N/A'}</td>
-                    <td>R$ ${displayValor}</td>
-                    <td><input type="text" class="proposta-input" value="${data.proposta}" placeholder="R$" data-exame="${exame}"></td>
-                    <td>R$ ${displayCusto}</td>
-                    <td>R$ ${imposto}</td>
-                    <td>${desconto}%</td>
-                    <td>${margem}%</td>
-                    <td><i class="fas fa-trash delete-icon" data-exame="${exame}"></i></td>
-                `;
-                body.appendChild(row);
-            });
-
-            // Update summary row with null checks
-            const totalDesconto = (totalValor && totalProposta) ? (((totalValor - totalProposta) / totalValor) * 100).toFixed(2) : '0.00';
-            const totalMargem = totalPropostaForMargem ? ((totalMargemNum / totalPropostaForMargem) * 100).toFixed(2) : '0.00';
-
-            const totalCustoElement = document.getElementById('totalCusto');
-            const totalValorElement = document.getElementById('totalValor');
-            const totalPropostaElement = document.getElementById('totalProposta');
-            const totalDescontoElement = document.getElementById('totalDesconto');
-            const totalMargemElement = document.getElementById('totalMargem');
-
-            if (totalCustoElement) totalCustoElement.textContent = `R$ ${totalCusto.toFixed(2)}`;
-            if (totalValorElement) totalValorElement.textContent = `R$ ${totalValor.toFixed(2)}`;
-            if (totalPropostaElement) totalPropostaElement.textContent = `R$ ${totalProposta.toFixed(2)}`;
-            if (totalDescontoElement) totalDescontoElement.textContent = `${totalDesconto}%`;
-            if (totalMargemElement) totalMargemElement.textContent = `${totalMargem}%`;
-
-            // Add event listeners to proposta inputs
-            document.querySelectorAll('.proposta-input').forEach(input => {
-                input.addEventListener('blur', (e) => {
-                    const exame = e.target.dataset.exame;
-                    selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
-                    renderTable(Object.keys(selectedExams));
-                });
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        const exame = e.target.dataset.exame;
-                        selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
-                        renderTable(Object.keys(selectedExams));
-                    }
-                });
-            });
-
-            // Add event listeners to delete icons
-            document.querySelectorAll('.delete-icon').forEach(icon => {
-                icon.addEventListener('click', (e) => {
-                    const exame = e.target.dataset.exame;
-                    delete selectedExams[exame];
-                    renderTable(Object.keys(selectedExams));
-                    if (Object.keys(selectedExams).length === 0) {
-                        document.getElementById('downloadIcon').style.display = 'none';
-                    }
-                });
-            });
+    // Adicionar event listener para o input de taxa
+    document.querySelector('.tax-input').addEventListener('input', (e) => {
+        const value = parseFloat(normalizeDecimalInput(e.target.value));
+        if (!isNaN(value) && value >= 0) {
+            taxRate = value;
+            renderTable(Object.keys(selectedExams));
         }
+    });
+
+    exams.forEach(exame => {
+        const row = document.createElement('tr');
+        const data = selectedExams[exame] || { valor: 'N/A', custo: 'N/A', material: 'N/A', prazo: 'N/A', proposta: '' };
+        const displayValor = data.valor !== 'N/A' && !isNaN(data.valor) ? data.valor.toFixed(2) : '0.00';
+        const displayCusto = data.custo !== 'N/A' && !isNaN(data.custo) ? data.custo.toFixed(2) : '0.00';
+        const propostaNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
+        const imposto = (propostaNum * taxRate / 100).toFixed(2);
+        const desconto = data.proposta && data.valor ? (((data.valor - propostaNum) / data.valor) * 100).toFixed(2) : '0.00';
+        const margem = data.proposta ? (((propostaNum - (propostaNum * taxRate / 100) - data.custo) / propostaNum) * 100).toFixed(2) : '0.00';
+
+        if (data.custo !== 'N/A' && !isNaN(data.custo)) totalCusto += parseFloat(data.custo);
+        if (data.valor !== 'N/A' && !isNaN(data.valor)) totalValor += parseFloat(data.valor);
+        if (propostaNum) totalProposta += propostaNum;
+        if (propostaNum && data.custo !== 'N/A' && !isNaN(data.custo)) {
+            totalMargemNum += (propostaNum - (propostaNum * taxRate / 100) - data.custo);
+            totalPropostaForMargem += propostaNum;
+        }
+
+        if (parseFloat(margem) < marginThreshold) {
+            row.classList.add('low-margin');
+        }
+
+        row.innerHTML = `
+            <td>${exame}</td>
+            <td>${data.material || 'N/A'}</td>
+            <td>${data.prazo || 'N/A'}</td>
+            <td>R$ ${displayValor}</td>
+            <td><input type="text" class="proposta-input" value="${data.proposta}" placeholder="R$" data-exame="${exame}"></td>
+            <td>R$ ${displayCusto}</td>
+            <td>R$ ${imposto}</td>
+            <td>${desconto}%</td>
+            <td>${margem}%</td>
+            <td><i class="fas fa-trash delete-icon" data-exame="${exame}"></i></td>
+        `;
+        body.appendChild(row);
+    });
+
+    // Atualizar linha de resumo
+    const totalDesconto = (totalValor && totalProposta) ? (((totalValor - totalProposta) / totalValor) * 100).toFixed(2) : '0.00';
+    const totalMargem = totalPropostaForMargem ? ((totalMargemNum / totalPropostaForMargem) * 100).toFixed(2) : '0.00';
+
+    const totalCustoElement = document.getElementById('totalCusto');
+    const totalValorElement = document.getElementById('totalValor');
+    const totalPropostaElement = document.getElementById('totalProposta');
+    const totalDescontoElement = document.getElementById('totalDesconto');
+    const totalMargemElement = document.getElementById('totalMargem');
+
+    if (totalCustoElement) totalCustoElement.textContent = `R$ ${totalCusto.toFixed(2)}`;
+    if (totalValorElement) totalValorElement.textContent = `R$ ${totalValor.toFixed(2)}`;
+    if (totalPropostaElement) totalPropostaElement.textContent = `R$ ${totalProposta.toFixed(2)}`;
+    if (totalDescontoElement) totalDescontoElement.textContent = `${totalDesconto}%`;
+    if (totalMargemElement) totalMargemElement.textContent = `${totalMargem}%`;
+
+    // Adicionar event listeners aos inputs de proposta
+    document.querySelectorAll('.proposta-input').forEach(input => {
+        input.addEventListener('blur', (e) => {
+            const exame = e.target.dataset.exame;
+            selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
+            renderTable(Object.keys(selectedExams));
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const exame = e.target.dataset.exame;
+                selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
+                renderTable(Object.keys(selectedExams));
+            }
+        });
+    });
+
+    // Adicionar event listeners aos ícones de exclusão
+    document.querySelectorAll('.delete-icon').forEach(icon => {
+        icon.addEventListener('click', (e) => {
+            const exame = e.target.dataset.exame;
+            delete selectedExams[exame];
+            renderTable(Object.keys(selectedExams));
+            if (Object.keys(selectedExams).length === 0) {
+                document.getElementById('downloadIcon').style.display = 'none';
+            }
+        });
+    });
+}
 
         // Add event listener for margin limit input
         document.getElementById('marginLimitInput').addEventListener('input', (e) => {
