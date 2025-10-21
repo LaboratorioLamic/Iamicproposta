@@ -369,7 +369,7 @@
         }
         .warning-message {
             display: none;
-            background: linear-gradient(135deg, #2b82b4, #4096b1);
+            background: linear-gradient(135deg, #c01425, #ff374b);
             color: white;
             padding: 15px;
             border-radius: 8px;
@@ -428,6 +428,9 @@
     </style>
 </head>
 <body>
+    <div class="warning-message" id="warning-message">
+        <span id="warning-text"></span>
+    </div>
     <div class="modal" id="password-modal">
         <div class="modal-content" id="modal-content">
             <h2>Propostas de Exames</h2>
@@ -446,10 +449,6 @@
             <textarea id="presentationText"></textarea>
             <button class="cancel" id="cancel-presentation">Cancelar</button><button class="download" id="download-presentation">Baixar</button>
         </div>
-    </div>
-
-    <div class="warning-message" id="warning-message">
-        <span id="warning-text"></span>
     </div>
 
     <div class="logo-container">
@@ -630,41 +629,57 @@ Laboratório LAMIC`;
             await loadData();
         });
 
-        async function loadData() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-            let data;
-            try {
-                const response = await fetch(sheetsUrl);
-                if (response.ok) {
-                    data = await response.json();
-                } else {
-                    throw new Error('Falha ao carregar dados do Google Sheets');
-                }
-            } catch (error) {
-                console.warn('Usando dados de teste:', error);
-                data = testData;
+async function loadData() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        let data;
+        try {
+            const response = await fetch(sheetsUrl);
+            if (response.ok) {
+                data = await response.json();
+            } else {
+                throw new Error('Falha ao carregar dados do Google Sheets');
             }
-
-            examsData = {};
-            data.forEach(row => {
-                const exame = row.Exame;
-                const valor = parseFloat(row.Valor);
-                const custo = parseFloat(row.Custo);
-                const custo2 = parseFloat(row.Custo2);
-                const material = row.Material;
-                const prazo = row.Prazo;
-                if (exame && !isNaN(valor)) {
-                    examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
-                }
-            });
-
-            renderTableHeader();
-            renderTable(Object.keys(selectedExams));
-            document.getElementById('loadingOverlay').style.display = 'none';
-            if (Object.keys(selectedExams).length > 0) {
-                document.getElementById('downloadIcon').style.display = 'block';
-            }
+        } catch (error) {
+            console.warn('Usando dados de teste:', error);
+            data = testData;
         }
+
+        examsData = {};
+        data.forEach(row => {
+            const exame = row.Exame;
+            const valor = parseFloat(row.Valor);
+            const custo = parseFloat(row.Custo);
+            const custo2 = parseFloat(row.Custo2);
+            const material = row.Material;
+            const prazo = row.Prazo;
+            if (exame && !isNaN(valor)) {
+                examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
+            }
+        });
+
+        // Carregar valores salvos do localStorage
+        const savedTaxRate = localStorage.getItem('taxRate');
+        const savedMarginThreshold = localStorage.getItem('marginThreshold');
+        if (savedTaxRate) {
+            taxRate = parseFloat(savedTaxRate);
+        }
+        if (savedMarginThreshold) {
+            marginThreshold = parseFloat(savedMarginThreshold);
+        }
+
+        // Renderizar o cabeçalho da tabela antes de tentar acessar os elementos
+        renderTableHeader();
+
+        // Agora que o cabeçalho foi renderizado, os elementos existem
+        document.querySelector('.tax-input').value = taxRate;
+        document.getElementById('marginLimitInput').value = marginThreshold;
+
+        renderTable(Object.keys(selectedExams));
+        document.getElementById('loadingOverlay').style.display = 'none';
+        if (Object.keys(selectedExams).length > 0) {
+            document.getElementById('downloadIcon').style.display = 'block';
+        }
+    }
 
         function renderTableHeader() {
             const header = document.getElementById('tableHeader');
@@ -692,7 +707,7 @@ Laboratório LAMIC`;
                     <td></td>
                 </tr>
             `;
-            // Adiciona eventos para atualizar o imposto após concluir a digitação
+            // Adiciona eventos para atualizar o imposto após concluir a digitação e salvar no localStorage
             const taxInput = document.querySelector('.tax-input');
             taxInput.removeEventListener('blur', handleTaxInputBlur);
             taxInput.removeEventListener('keydown', handleTaxInputKeydown);
@@ -704,6 +719,7 @@ Laboratório LAMIC`;
             const value = parseFloat(normalizeDecimalInput(e.target.value));
             if (!isNaN(value) && value >= 0) {
                 taxRate = value;
+                localStorage.setItem('taxRate', taxRate);
                 renderTable(Object.keys(selectedExams));
             }
         }
@@ -713,6 +729,7 @@ Laboratório LAMIC`;
                 const value = parseFloat(normalizeDecimalInput(e.target.value));
                 if (!isNaN(value) && value >= 0) {
                     taxRate = value;
+                    localStorage.setItem('taxRate', taxRate);
                     renderTable(Object.keys(selectedExams));
                 }
             }
@@ -811,6 +828,7 @@ Laboratório LAMIC`;
             const value = parseFloat(normalizeDecimalInput(e.target.value));
             if (!isNaN(value)) {
                 marginThreshold = value;
+                localStorage.setItem('marginThreshold', marginThreshold);
                 renderTable(Object.keys(selectedExams));
             }
         });
