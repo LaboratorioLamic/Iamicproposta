@@ -388,6 +388,61 @@
             50% { transform: translateX(-50%) scale(1.1); opacity: 0.8; }
             100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 25px;
+        }
+        .reset-btn, .export-btn, .import-btn {
+            padding: 14px 20px;
+            min-width: 160px;
+            white-space: nowrap;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: all 0.3s;
+        }
+        .reset-btn {
+            background: #f39c12;
+            color: #fff;
+            min-width: 50px;
+            white-space: nowrap;
+        }
+        .reset-btn:hover {
+            background: #e67e22;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+        }
+        .export-btn {
+            background: #27ae60;
+            color: #fff;
+            min-width: 50px;
+            white-space: nowrap;
+        }
+        .export-btn:hover {
+            background: #219653;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+        }
+        .import-btn {
+            background: #6c757d;
+            color: #fff;
+            min-width: 50px;
+            white-space: nowrap;
+        }
+        .import-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+        }
+        .file-input {
+            display: none;
+        }
         @media (max-width: 768px) {
             table {
                 font-size: 14px;
@@ -423,6 +478,14 @@
             }
             .modal-content-presentation textarea {
                 height: 250px;
+            }
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            .reset-btn, .export-btn, .import-btn {
+                width: 100%;
+                max-width: 300px;
             }
         }
     </style>
@@ -476,6 +539,14 @@
         <thead id="tableHeader"></thead>
         <tbody id="tableBody"></tbody>
     </table>
+
+    <!-- BOTÕES ADICIONADOS -->
+    <div class="action-buttons">
+        <button class="reset-btn" id="resetBtn">Resetar dados</button>
+        <button class="export-btn" id="exportBtn">Exportar</button>
+        <label class="import-btn" for="importFile">Importar</label>
+        <input type="file" id="importFile" class="file-input" accept=".json">
+    </div>
 
     <script>
         const sheetsUrl = 'https://script.google.com/macros/s/AKfycby_zNp22_d9KEsaSC-llIxRVuvkx16P85BQ6FRfiqx3UrKCqwXp7cIlHPRpG7_kwK-9LQ/exec';
@@ -549,6 +620,7 @@ Laboratório LAMIC`;
             document.querySelector('.margin-limit-container').style.display = 'flex';
             document.querySelector('.l2l-checkbox-container').style.display = 'flex';
             document.querySelector('table').style.display = 'table';
+            document.querySelector('.action-buttons').style.display = 'flex';
         }
 
         function showPresentationModal() {
@@ -629,57 +701,65 @@ Laboratório LAMIC`;
             await loadData();
         });
 
-async function loadData() {
-        document.getElementById('loadingOverlay').style.display = 'flex';
-        let data;
-        try {
-            const response = await fetch(sheetsUrl);
-            if (response.ok) {
-                data = await response.json();
-            } else {
-                throw new Error('Falha ao carregar dados do Google Sheets');
+        // Função para salvar no localStorage
+        function saveToLocalStorage() {
+            localStorage.setItem('lamicPropostasData', JSON.stringify({
+                selectedExams,
+                taxRate,
+                marginThreshold,
+                useL2LCost
+            }));
+        }
+
+        async function loadData() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            let data;
+            try {
+                const response = await fetch(sheetsUrl);
+                if (response.ok) {
+                    data = await response.json();
+                } else {
+                    throw new Error('Falha ao carregar dados do Google Sheets');
+                }
+            } catch (error) {
+                console.warn('Usando dados de teste:', error);
+                data = testData;
             }
-        } catch (error) {
-            console.warn('Usando dados de teste:', error);
-            data = testData;
-        }
 
-        examsData = {};
-        data.forEach(row => {
-            const exame = row.Exame;
-            const valor = parseFloat(row.Valor);
-            const custo = parseFloat(row.Custo);
-            const custo2 = parseFloat(row.Custo2);
-            const material = row.Material;
-            const prazo = row.Prazo;
-            if (exame && !isNaN(valor)) {
-                examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
+            examsData = {};
+            data.forEach(row => {
+                const exame = row.Exame;
+                const valor = parseFloat(row.Valor);
+                const custo = parseFloat(row.Custo);
+                const custo2 = parseFloat(row.Custo2);
+                const material = row.Material;
+                const prazo = row.Prazo;
+                if (exame && !isNaN(valor)) {
+                    examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
+                }
+            });
+
+            // Carregar do localStorage
+            const saved = localStorage.getItem('lamicPropostasData');
+            if (saved) {
+                const p = JSON.parse(saved);
+                selectedExams = p.selectedExams || {};
+                taxRate = p.taxRate !== undefined ? p.taxRate : taxRate;
+                marginThreshold = p.marginThreshold !== undefined ? p.marginThreshold : marginThreshold;
+                useL2LCost = p.useL2LCost !== undefined ? p.useL2LCost : useL2LCost;
             }
-        });
 
-        // Carregar valores salvos do localStorage
-        const savedTaxRate = localStorage.getItem('taxRate');
-        const savedMarginThreshold = localStorage.getItem('marginThreshold');
-        if (savedTaxRate) {
-            taxRate = parseFloat(savedTaxRate);
+            renderTableHeader();
+            document.querySelector('.tax-input').value = taxRate;
+            document.getElementById('marginLimitInput').value = marginThreshold;
+            document.getElementById('l2lCheckbox').checked = useL2LCost;
+
+            renderTable(Object.keys(selectedExams));
+            document.getElementById('loadingOverlay').style.display = 'none';
+            if (Object.keys(selectedExams).length > 0) {
+                document.getElementById('downloadIcon').style.display = 'block';
+            }
         }
-        if (savedMarginThreshold) {
-            marginThreshold = parseFloat(savedMarginThreshold);
-        }
-
-        // Renderizar o cabeçalho da tabela antes de tentar acessar os elementos
-        renderTableHeader();
-
-        // Agora que o cabeçalho foi renderizado, os elementos existem
-        document.querySelector('.tax-input').value = taxRate;
-        document.getElementById('marginLimitInput').value = marginThreshold;
-
-        renderTable(Object.keys(selectedExams));
-        document.getElementById('loadingOverlay').style.display = 'none';
-        if (Object.keys(selectedExams).length > 0) {
-            document.getElementById('downloadIcon').style.display = 'block';
-        }
-    }
 
         function renderTableHeader() {
             const header = document.getElementById('tableHeader');
@@ -707,7 +787,6 @@ async function loadData() {
                     <td></td>
                 </tr>
             `;
-            // Adiciona eventos para atualizar o imposto após concluir a digitação e salvar no localStorage
             const taxInput = document.querySelector('.tax-input');
             taxInput.removeEventListener('blur', handleTaxInputBlur);
             taxInput.removeEventListener('keydown', handleTaxInputKeydown);
@@ -719,7 +798,7 @@ async function loadData() {
             const value = parseFloat(normalizeDecimalInput(e.target.value));
             if (!isNaN(value) && value >= 0) {
                 taxRate = value;
-                localStorage.setItem('taxRate', taxRate);
+                saveToLocalStorage();
                 renderTable(Object.keys(selectedExams));
             }
         }
@@ -729,7 +808,7 @@ async function loadData() {
                 const value = parseFloat(normalizeDecimalInput(e.target.value));
                 if (!isNaN(value) && value >= 0) {
                     taxRate = value;
-                    localStorage.setItem('taxRate', taxRate);
+                    saveToLocalStorage();
                     renderTable(Object.keys(selectedExams));
                 }
             }
@@ -801,12 +880,14 @@ async function loadData() {
                 input.addEventListener('blur', (e) => {
                     const exame = e.target.dataset.exame;
                     selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
+                    saveToLocalStorage();
                     renderTable(Object.keys(selectedExams));
                 });
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         const exame = e.target.dataset.exame;
                         selectedExams[exame].proposta = normalizeDecimalInput(e.target.value);
+                        saveToLocalStorage();
                         renderTable(Object.keys(selectedExams));
                     }
                 });
@@ -816,6 +897,7 @@ async function loadData() {
                 icon.addEventListener('click', (e) => {
                     const exame = e.target.dataset.exame;
                     delete selectedExams[exame];
+                    saveToLocalStorage();
                     renderTable(Object.keys(selectedExams));
                     if (Object.keys(selectedExams).length === 0) {
                         document.getElementById('downloadIcon').style.display = 'none';
@@ -828,13 +910,14 @@ async function loadData() {
             const value = parseFloat(normalizeDecimalInput(e.target.value));
             if (!isNaN(value)) {
                 marginThreshold = value;
-                localStorage.setItem('marginThreshold', marginThreshold);
+                saveToLocalStorage();
                 renderTable(Object.keys(selectedExams));
             }
         });
 
         document.getElementById('l2lCheckbox').addEventListener('change', (e) => {
             useL2LCost = e.target.checked;
+            saveToLocalStorage();
             renderTable(Object.keys(selectedExams));
         });
 
@@ -859,6 +942,7 @@ async function loadData() {
                 item.addEventListener('click', () => {
                     if (!selectedExams[exame]) {
                         selectedExams[exame] = { ...examsData[exame] };
+                        saveToLocalStorage();
                         renderTable(Object.keys(selectedExams));
                         document.getElementById('downloadIcon').style.display = 'block';
                     }
@@ -880,7 +964,6 @@ async function loadData() {
             }
         });
 
-        // Função para formatar a data no formato desejado
         function getFormattedDate() {
             const months = [
                 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -942,16 +1025,13 @@ async function loadData() {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
 
-            // Adiciona a localização e data
             const dateText = getFormattedDate();
             doc.text(dateText, 105, startY + 10, { align: 'center' });
 
-            // Adiciona o texto de apresentação editável
             const presentationText = document.getElementById('presentationText').value || defaultPresentationText;
             const presentationLines = doc.splitTextToSize(presentationText, 180);
             doc.text(presentationLines, 15, startY + 20);
 
-            // Calcula a posição após o texto de apresentação
             let textHeight = presentationLines.length * 5;
             let tableStartY = startY + 20 + textHeight + 10;
 
@@ -1006,7 +1086,6 @@ async function loadData() {
                 }
             });
 
-            // Adiciona o texto fixo após a tabela
             const finalY = doc.lastAutoTable.finalY + 10;
             const closingLines = doc.splitTextToSize(closingText, 180);
             doc.text(closingLines, 15, finalY);
@@ -1017,7 +1096,6 @@ async function loadData() {
             document.getElementById('downloadIcon').style.display = 'block';
         }
 
-        // Eventos para o modal de apresentação
         document.getElementById('downloadIcon').addEventListener('click', () => {
             if (Object.keys(selectedExams).length === 0) {
                 showWarning('Nenhum exame selecionado para gerar o PDF.');
@@ -1034,6 +1112,68 @@ async function loadData() {
         document.getElementById('download-presentation').addEventListener('click', () => {
             hidePresentationModal();
             downloadPDF();
+        });
+
+        // BOTÃO RESETAR
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Resetar todos os dados?')) {
+                localStorage.removeItem('lamicPropostasData');
+                selectedExams = {};
+                taxRate = 8.10;
+                marginThreshold = 15;
+                useL2LCost = false;
+                renderTableHeader();
+                renderTable([]);
+                document.getElementById('downloadIcon').style.display = 'none';
+                showWarning('Dados resetados com sucesso!');
+            }
+        });
+
+        // BOTÃO EXPORTAR
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const data = { selectedExams, taxRate, marginThreshold, useL2LCost };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lamic_propostas.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showWarning('Dados exportados com sucesso!');
+        });
+
+        // BOTÃO IMPORTAR
+        document.getElementById('importFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const json = JSON.parse(ev.target.result);
+                    if (json.selectedExams && json.taxRate !== undefined) {
+                        selectedExams = json.selectedExams;
+                        taxRate = json.taxRate;
+                        marginThreshold = json.marginThreshold || 15;
+                        useL2LCost = json.useL2LCost || false;
+                        saveToLocalStorage();
+                        renderTableHeader();
+                        renderTable(Object.keys(selectedExams));
+                        document.querySelector('.tax-input').value = taxRate;
+                        document.getElementById('marginLimitInput').value = marginThreshold;
+                        document.getElementById('l2lCheckbox').checked = useL2LCost;
+                        if (Object.keys(selectedExams).length > 0) {
+                            document.getElementById('downloadIcon').style.display = 'block';
+                        }
+                        showWarning('Dados importados com sucesso!');
+                    } else {
+                        showWarning('Arquivo JSON inválido.', true);
+                    }
+                } catch (err) {
+                    showWarning('Erro ao ler o arquivo.', true);
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
         });
 
         window.addEventListener('load', () => {
