@@ -731,45 +731,165 @@ Laboratório LAMIC`;
         });
 
         async function loadData() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-            let data;
-            try {
-                const response = await fetch(sheetsUrl);
-                data = response.ok ? await response.json() : testData;
-            } catch (error) {
-                console.warn('Usando dados de teste:', error);
-                data = testData;
-            }
+    document.getElementById('loadingOverlay').style.display = 'flex';
 
-            examsData = {};
-            data.forEach(row => {
-                const exame = row.Exame;
-                const valor = parseFloat(row.Valor);
-                const custo = parseFloat(row.Custo);
-                const custo2 = parseFloat(row.Custo2);
-                const material = row.Material;
-                const prazo = row.Prazo;
-                if (exame && !isNaN(valor)) {
-                    examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
+    // 1. Carrega os dados do Google Sheets
+    let sheetData = [];
+    try {
+        const response = await fetch(sheetsUrl);
+        sheetData = response.ok ? await response.json() : testData;
+    } catch (error) {
+        console.warn('Erro ao carregar Google Sheets, usando dados de teste:', error);
+        sheetData = testData;
+    }
+
+    // 2. Reconstrói examsData com os dados do Sheets (sempre atualizados)
+    examsData = {};
+    sheetData.forEach(row => {
+        const exame = row.Exame?.trim();
+        const valor = parseFloat(row.Valor);
+        const custo = parseFloat(row.Custo);
+        const custo2 = parseFloat(row.Custo2);
+        const material = row.Material || '-';
+        const prazo = row.Prazo || '-';
+
+        if (exame && !isNaN(valor)) {
+            examsData[exame] = { valor, custo, custo2, material, prazo, proposta: '' };
+        }
+    });
+
+    // 3. Carrega dados salvos do JSONBin
+    let savedData = { selectedExams: {}, taxRate: 8.10, marginThreshold: 15, useL2LCost: false };
+    try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${dataBinId}/latest`, {
+            headers: { 'X-Access-Key': accessKey }
+        });
+        if (response.ok) {
+            const json = await response.json();
+            savedData = json.record || savedData;
+        }
+    } catch (err) {
+        console.warn('Erro ao carregar JSONBin, usando padrão:', err);
+    }
+
+    // 4. Reconcilia: mantém apenas exames que existem no Sheets
+    const validSelectedExams = {};
+    Object.keys(savedData.selectedExams).forEach(exame => {
+        if (examsData[exame]) {
+            validSelectedExams[exame] = {
+                ...examsData[exame],
+                proposta: savedData.selectedExams[exame].proposta || ''
+            };
+        }
+    });
+
+    selectedExams = validSelectedExams;
+    taxRate = savedData.taxRate !== undefined ? savedData.taxRate : 8.10;
+    marginThreshold = savedData.marginThreshold !== undefined ? savedData.marginThreshold : 15;
+    useL2LCost = savedData.useL2LCost !== undefined ? savedData.useL2LCost : false;
+
+    // 5. Renderiza interface
+    renderTableHeader();
+    const taxInput = document.querySelector('.tax-input');
+    if (taxInput) taxInput.value = taxRate;
+    document.getElementById('marginLimitInput').value = marginThreshold;
+    document.getElementById('l2lCheckbox').checked = useL2LCost;
+
+    renderTable(Object.keys(selectedExams));
+    document.getElementById('loadingOverlay').style.display = 'none';
+
+    if (Object.keys(selectedExams).length > 0) {
+        document.getElementById('downloadIcon').style.display = 'block';
+    }
+
+    // 6. ADICIONA EVENTOS DE AUTOCOMPLETE APÓS DADOS CARREGADOS
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteList = document.getElementById('autocompleteList');
+
+    // Remove listeners antigos para evitar duplicação
+    searchInput.removeEventListener('input', handleSearchInput);
+    document.removeEventListener('click', handleClickOutside);
+
+    // Função de busca
+    function handleSearchInput(e) {
+        const query = e.target.value.trim();
+        autocompleteList.innerHTML = '';
+        autocompleteList.style.display = 'none';
+
+        if (query.length < 2) return;
+
+        const lowerQuery = query.toLowerCase();
+        const matchingExams = Object.keys(examsData).filter(exame =>
+            exame.toLowerCase().includes(lowerQuery)
+        );
+
+        if (matchingExams.length === 0) return;
+
+        matchingExams.forEach(exame => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.textContent = exame;
+            item.addEventListener('click', () => {
+                if (!selectedExams[exame]) {
+                    selectedExams[exame] = { ...examsData[exame], proposta: '' };
+                    saveToJsonBin();
+                    renderTable(Object.keys(selectedExams));
+                    document.getElementById('downloadIcon').style.display = 'block';
                 }
+                searchInput.value = '';
+                autocompleteList.style.display = 'none';
             });
+            autocompleteList.appendChild(item);
+        });
 
-            await loadFromJsonBin();
+        autocompleteList.style.display = 'block';
+    }
 
-            renderTableHeader();
-            document.querySelector('.tax-input').value = taxRate;
-            document.getElementById('marginLimitInput').value = marginThreshold;
-            document.getElementById('l2lCheckbox').checked = useL2LCost;
+    // Fecha ao clicar fora
+    function handleClickOutside(e) {
+        if (!e.target.closest('.search-container')) {
+            autocompleteList.style.display = 'none';
+        }
+    }
 
-            renderTable(Object.keys(selectedExams));
-            document.getElementById('loadingOverlay').style.display = 'none';
-            if (Object.keys(selectedExams).length > 0) {
+    // Adiciona os listeners
+    searchInput.addEventListener('input', handleSearchInput);
+    document.addEventListener('click', handleClickOutside);
+}
+
+function showAutocomplete(query) {
+    const autocompleteList = document.getElementById('autocompleteList');
+    autocompleteList.innerHTML = '';
+    autocompleteList.style.display = 'none';
+
+    if (!query || query.length < 2) return;
+
+    const lowerQuery = query.toLowerCase().trim();
+    const matchingExams = Object.keys(examsData).filter(exame =>
+        exame.toLowerCase().includes(lowerQuery)
+    );
+
+    if (matchingExams.length === 0) return;
+
+    matchingExams.forEach(exame => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = exame;
+        item.addEventListener('click', () => {
+            if (!selectedExams[exame]) {
+                selectedExams[exame] = { ...examsData[exame], proposta: '' };
+                saveToJsonBin();
+                renderTable(Object.keys(selectedExams));
                 document.getElementById('downloadIcon').style.display = 'block';
             }
-        }
+            document.getElementById('searchInput').value = '';
+            autocompleteList.style.display = 'none';
+        });
+        autocompleteList.appendChild(item);
+    });
 
-        // [RESTANTE DO CÓDIGO: renderTableHeader, renderTable, eventos, PDF, etc.]
-        // (mantido igual, exceto chamadas de saveToJsonBin)
+    autocompleteList.style.display = 'block';
+}
 
         function renderTableHeader() {
             const header = document.getElementById('tableHeader');
