@@ -1082,7 +1082,7 @@ Laboratório LAMIC`;
             doc.setFontSize(11);
             doc.text(closing, 15, finalY);
 
-            doc.save('LAMIC - Proposta de Exames.pdf');
+            doc.save(`LAMIC - Proposta de Exames ${dataFormatada}.pdf`);
 
             document.getElementById('loadingDownloadIcon').style.display = 'none';
             document.getElementById('downloadIcon').style.display = 'block';
@@ -1204,6 +1204,8 @@ function exportToJson() {
 document.getElementById('exportBtn').addEventListener('click', exportToJson);
 
         window.addEventListener('load', showModal);
+        const hoje = new Date();
+        const dataFormatada = `${String(hoje.getDate()).padStart(2, '0')}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${hoje.getFullYear()}`;
     </script>
 </body>
 </html>
