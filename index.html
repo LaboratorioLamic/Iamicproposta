@@ -1206,6 +1206,36 @@ document.getElementById('exportBtn').addEventListener('click', exportToJson);
         window.addEventListener('load', showModal);
         const hoje = new Date();
         const dataFormatada = `${String(hoje.getDate()).padStart(2, '0')}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${hoje.getFullYear()}`;
+
+        // ====================== RESETAR DADOS ======================
+document.getElementById('resetBtn').addEventListener('click', async () => {
+    if (!confirm('Tem certeza que deseja resetar todos os dados? Isso removerá todos os exames adicionados.')) {
+        return;
+    }
+
+    try {
+        // 1. Limpa dados locais
+        selectedExams = {};
+        taxRate = 8.10;
+        marginThreshold = 15;
+        useL2LCost = false;
+
+        // 2. Atualiza interface
+        document.getElementById('marginLimitInput').value = marginThreshold;
+        document.getElementById('l2lCheckbox').checked = useL2LCost;
+        document.getElementById('downloadIcon').style.display = 'none';
+        renderTableHeader();
+        renderTable([]);
+
+        // 3. Salva estado vazio no JSONBin
+        await saveToJsonBin();
+
+        showWarning('Dados resetados com sucesso!');
+    } catch (err) {
+        console.error('Erro ao resetar dados:', err);
+        showWarning('Erro ao resetar. Tente novamente.');
+    }
+});
     </script>
 </body>
 </html>
