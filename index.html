@@ -1086,7 +1086,7 @@ Laboratório LAMIC`;
             if (logoData) {
                 try {
                     const imgProps = doc.getImageProperties(logoData);
-                    const logoWidth = 140;
+                    const logoWidth = 110;
                     const logoHeight = (imgProps.height / imgProps.width) * logoWidth;
                     doc.addImage(logoData, 'PNG', margin, currentY - 10, logoWidth, logoHeight);
                 } catch (err) {
@@ -1108,7 +1108,7 @@ Laboratório LAMIC`;
             doc.setTextColor('#333333');
             const presentationLines = doc.splitTextToSize(presentationText, pageWidth - margin * 2);
             doc.text(presentationLines, margin, currentY);
-            currentY += presentationLines.length * 16 + 10;
+            currentY += presentationLines.length * 14;
 
             const rows = Object.keys(selectedExams).map(exame => {
                 const item = selectedExams[exame];
@@ -1116,8 +1116,7 @@ Laboratório LAMIC`;
                     exame,
                     item.material || '-',
                     item.prazo || '-',
-                    `R$ ${parseFloat(normalizeDecimalInput(item.proposta || '0')).toFixed(2)}`,
-                    `R$ ${(useL2LCost ? item.custo2 : item.custo || 0).toFixed(2)}`
+                    `R$ ${parseFloat(normalizeDecimalInput(item.proposta || '0')).toFixed(2)}`
                 ];
             });
 
@@ -1128,20 +1127,20 @@ Laboratório LAMIC`;
                         'Exame',
                         'Material',
                         'Prazo',
-                        'Proposta',
-                        'Custo'
+                        'Proposta'
                     ]],
                     body: rows,
                     theme: 'grid',
-                    styles: { fontSize: 10, cellPadding: 6 },
+                    styles: { fontSize: 10, cellPadding: 5 },
                     headStyles: { fillColor: '#1a2b5f', textColor: '#ffffff', halign: 'center' },
                     alternateRowStyles: { fillColor: '#f6f8fc' },
+                    margin: { left: margin, right: margin },
+                    tableWidth: 'auto',
                     columnStyles: {
-                        0: { cellWidth: 150 },
-                        1: { cellWidth: 100 },
+                        0: { cellWidth: 260 },
+                        1: { cellWidth: 90 },
                         2: { cellWidth: 80 },
-                        3: { cellWidth: 80 },
-                        4: { cellWidth: 80 }
+                        3: { cellWidth: 80 }
                     },
                     didDrawPage: (data) => {
                         const pageSize = doc.internal.pageSize;
