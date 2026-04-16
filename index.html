@@ -310,6 +310,36 @@
             font-weight: 600;
             width: 100%;
             transition: background-color 0.3s ease;
+            position: relative;
+        }
+        .modal-content button .button-spinner {
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1.2em;
+            height: 1.2em;
+            margin: -0.6em 0 0 -0.6em;
+            border: 0.2em solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(255,255,255,0.1);
+            animation: spin 0.85s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        .modal-content button.loading {
+            pointer-events: none;
+        }
+        .modal-content button.loading .button-spinner {
+            display: block;
+        }
+        .modal-content button.loading .button-text {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        #password-submit:disabled {
+            background-color: #1a2b49;
+            opacity: 0.94;
+            cursor: not-allowed;
         }
         .modal-content-presentation button {
             padding: 12px;
@@ -494,7 +524,7 @@
                 <div class="progress-bar" id="progress-bar"></div>
             </div>
             <input type="password" id="password-input" placeholder="Digite a senha">
-            <button id="password-submit">Entrar</button>
+            <button id="password-submit"><span class="button-text">Entrar</span><span class="button-spinner"></span></button>
         </div>
     </div>
 
@@ -563,6 +593,7 @@
         const dataBinId = '690dd35443b1c97be99e7d81';
         const accessKey = '$2a$10$TgbP6UAIlIQZZafKuEcGp.TMars5/XW./Q7FZshdQm7lF.wZIP0LC';
         
+        const localStorageKey = 'lamicPropostaState';
         let examsData = {};
         let selectedExams = {};
         let savedSlots = [];
@@ -571,7 +602,6 @@
         let loginAttempts = 0;
         let isLocked = false;
         let useL2LCost = false;
-        let lastSyncHash = ""; // Buffer para controle de atualização
 
         const defaultPresentationText = `Ao (Nome fantasia e CNPJ)
 
@@ -606,60 +636,65 @@ Laboratório LAMIC`;
             return value.toString().replace(',', '.').replace(/[^0-9.]/g, '');
         }
 
-        async function saveToJsonBin() {
+        function saveLocalState() {
             try {
-                const dataToSave = {
+                const state = {
                     selectedExams,
                     taxRate,
                     marginThreshold,
                     useL2LCost,
-                    savedSlots // Inclui os slots no salvamento remoto
+                    savedSlots
                 };
-                
-                // Atualiza o hash local para evitar que o auto-fetch dispare um re-render imediato
-                lastSyncHash = JSON.stringify(dataToSave);
+                localStorage.setItem(localStorageKey, JSON.stringify(state));
+            } catch (err) {
+                console.warn('Erro ao salvar localmente:', err);
+            }
+        }
 
+        function loadLocalState() {
+            try {
+                const saved = localStorage.getItem(localStorageKey);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    selectedExams = data.selectedExams || {};
+                    taxRate = data.taxRate !== undefined ? data.taxRate : 8.10;
+                    marginThreshold = data.marginThreshold !== undefined ? data.marginThreshold : 15;
+                    useL2LCost = data.useL2LCost !== undefined ? data.useL2LCost : false;
+                    savedSlots = data.savedSlots || [];
+                }
+            } catch (err) {
+                console.warn('Erro ao carregar localmente:', err);
+            }
+        }
+
+        async function saveSlotsToJsonBin() {
+            try {
                 await fetch(`https://api.jsonbin.io/v3/b/${dataBinId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Access-Key': accessKey
                     },
-                    body: lastSyncHash
+                    body: JSON.stringify({ savedSlots })
                 });
             } catch (err) {
-                console.error('Erro ao salvar no JSONBin:', err);
-                showWarning('Erro ao salvar dados.');
+                console.error('Erro ao salvar slots no JSONBin:', err);
+                showWarning('Erro ao salvar os slots.');
             }
         }
 
-        async function loadFromJsonBin(isAutoFetch = false) {
+        async function loadSavedSlotsFromJsonBin() {
             try {
                 const response = await fetch(`https://api.jsonbin.io/v3/b/${dataBinId}/latest?nocache=${Date.now()}`, {
                     headers: { 'X-Access-Key': accessKey }
                 });
-                
                 if (response.ok) {
                     const data = await response.json();
-                    const currentHash = JSON.stringify(data.record);
-                    
-                    // Só atualiza se o conteúdo for diferente do que já temos
-                    if (currentHash === lastSyncHash) return;
-                    
-                    lastSyncHash = currentHash;
-                    selectedExams = data.record.selectedExams || {};
-                    taxRate = data.record.taxRate !== undefined ? data.record.taxRate : 8.10;
-                    marginThreshold = data.record.marginThreshold !== undefined ? data.record.marginThreshold : 15;
-                    useL2LCost = data.record.useL2LCost !== undefined ? data.record.useL2LCost : false;
-                    savedSlots = data.record.savedSlots || [];
-
-                    if (isAutoFetch) {
-                        renderTable(Object.keys(selectedExams));
-                        updateConfigUI();
-                    }
+                    savedSlots = data.record?.savedSlots || savedSlots;
+                    saveLocalState();
                 }
             } catch (err) {
-                console.warn('Erro ao carregar do JSONBin:', err);
+                console.warn('Erro ao carregar slots do JSONBin:', err);
             }
         }
 
@@ -670,13 +705,6 @@ Laboratório LAMIC`;
             document.getElementById('l2lCheckbox').checked = useL2LCost;
             document.getElementById('downloadIcon').style.display = Object.keys(selectedExams).length > 0 ? 'block' : 'none';
         }
-
-        // Buffer de Sincronização Automática (20 segundos)
-        setInterval(() => {
-            if (!document.getElementById('password-modal').style.display || document.getElementById('password-modal').style.display === 'none') {
-                loadFromJsonBin(true);
-            }
-        }, 40000);
 
         // SLOTS LOGIC
         function renderSlots() {
@@ -697,7 +725,8 @@ Laboratório LAMIC`;
             });
         }
 
-        document.getElementById('openSlotsBtn').addEventListener('click', () => {
+        document.getElementById('openSlotsBtn').addEventListener('click', async () => {
+            await loadSavedSlotsFromJsonBin();
             renderSlots();
             document.getElementById('slots-modal').style.display = 'flex';
         });
@@ -709,7 +738,8 @@ Laboratório LAMIC`;
                     name: name,
                     data: JSON.parse(JSON.stringify(selectedExams))
                 });
-                await saveToJsonBin();
+                saveLocalState();
+                await saveSlotsToJsonBin();
                 renderSlots();
                 showWarning("Slot criado!");
             }
@@ -718,7 +748,8 @@ Laboratório LAMIC`;
         function loadSlot(index) {
             if (confirm(`Carregar proposta "${savedSlots[index].name}"? Isso substituirá os itens atuais.`)) {
                 selectedExams = JSON.parse(JSON.stringify(savedSlots[index].data));
-                saveToJsonBin();
+                saveLocalState();
+                saveSlotsToJsonBin();
                 renderTable(Object.keys(selectedExams));
                 document.getElementById('slots-modal').style.display = 'none';
                 showWarning("Proposta carregada!");
@@ -728,7 +759,8 @@ Laboratório LAMIC`;
         function overwriteSlot(index) {
             if (confirm(`Deseja sobrescrever o slot "${savedSlots[index].name}" com os dados da tela?`)) {
                 savedSlots[index].data = JSON.parse(JSON.stringify(selectedExams));
-                saveToJsonBin();
+                saveLocalState();
+                saveSlotsToJsonBin();
                 showWarning("Slot atualizado!");
             }
         }
@@ -736,7 +768,8 @@ Laboratório LAMIC`;
         function deleteSlot(index) {
             if (confirm(`Tem certeza que deseja excluir o slot "${savedSlots[index].name}"?`)) {
                 savedSlots.splice(index, 1);
-                saveToJsonBin();
+                saveLocalState();
+                saveSlotsToJsonBin();
                 renderSlots();
             }
         }
@@ -745,7 +778,8 @@ Laboratório LAMIC`;
             const newName = prompt("Novo nome para o slot:", savedSlots[index].name);
             if (newName) {
                 savedSlots[index].name = newName;
-                saveToJsonBin();
+                saveLocalState();
+                saveSlotsToJsonBin();
                 renderSlots();
             }
         }
@@ -779,10 +813,25 @@ Laboratório LAMIC`;
             }
         }
 
-        document.getElementById('password-submit').addEventListener('click', async () => {
+        function setPasswordButtonLoading(isLoading) {
+            const button = document.getElementById('password-submit');
+            if (isLoading) {
+                button.classList.add('loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+            }
+        }
+
+        async function attemptLogin() {
             if (isLocked) return;
-            const password = document.getElementById('password-input').value;
+            const passwordInput = document.getElementById('password-input');
+            const password = passwordInput.value;
+            setPasswordButtonLoading(true);
             const isValid = await validatePassword(password);
+            setPasswordButtonLoading(false);
+
             if (!isValid) {
                 loginAttempts++;
                 document.getElementById('modal-content').classList.add('error');
@@ -792,6 +841,14 @@ Laboratório LAMIC`;
             }
             hideModal();
             await loadData();
+        }
+
+        document.getElementById('password-submit').addEventListener('click', attemptLogin);
+        document.getElementById('password-input').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                attemptLogin();
+            }
         });
 
         function startLockout() {
@@ -829,7 +886,8 @@ Laboratório LAMIC`;
                 });
             } catch (e) { console.error(e); }
 
-            await loadFromJsonBin();
+            loadLocalState();
+            await loadSavedSlotsFromJsonBin();
             renderTableHeader();
             renderTable(Object.keys(selectedExams));
             updateConfigUI();
@@ -868,7 +926,7 @@ Laboratório LAMIC`;
             `;
             document.querySelector('.tax-input').addEventListener('blur', (e) => {
                 taxRate = parseFloat(normalizeDecimalInput(e.target.value)) || 0;
-                saveToJsonBin();
+                saveLocalState();
                 renderTable(Object.keys(selectedExams));
             });
         }
@@ -924,7 +982,7 @@ Laboratório LAMIC`;
                 input.addEventListener('blur', (e) => {
                     const ex = e.target.dataset.exame;
                     selectedExams[ex].proposta = e.target.value;
-                    saveToJsonBin();
+                    saveLocalState();
                     renderTable(Object.keys(selectedExams));
                 });
             });
@@ -932,7 +990,7 @@ Laboratório LAMIC`;
 
         function removeExame(exame) {
             delete selectedExams[exame];
-            saveToJsonBin();
+            saveLocalState();
             renderTable(Object.keys(selectedExams));
             updateConfigUI();
         }
@@ -956,7 +1014,7 @@ Laboratório LAMIC`;
                     item.onclick = () => {
                         if (!selectedExams[ex]) {
                             selectedExams[ex] = { ...examsData[ex], proposta: '' };
-                            saveToJsonBin();
+                            saveLocalState();
                             renderTable(Object.keys(selectedExams));
                             updateConfigUI();
                         }
@@ -971,26 +1029,42 @@ Laboratório LAMIC`;
 
         document.getElementById('marginLimitInput').addEventListener('blur', (e) => {
             marginThreshold = parseFloat(e.target.value) || 0;
-            saveToJsonBin();
+            saveLocalState();
             renderTable(Object.keys(selectedExams));
         });
 
         document.getElementById('l2lCheckbox').addEventListener('change', (e) => {
             useL2LCost = e.target.checked;
-            saveToJsonBin();
+            saveLocalState();
             renderTable(Object.keys(selectedExams));
         });
 
         document.getElementById('resetBtn').addEventListener('click', async () => {
             if(confirm("Resetar proposta atual?")) {
                 selectedExams = {};
-                await saveToJsonBin();
+                saveLocalState();
                 renderTable([]);
                 updateConfigUI();
             }
         });
 
         // PDF & Modal Presentation
+        async function getImageDataURL(url) {
+            try {
+                const response = await fetch(url, { mode: 'cors' });
+                const blob = await response.blob();
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (err) {
+                console.warn('Não foi possível carregar o logo para o PDF.', err);
+                return null;
+            }
+        }
+
         document.getElementById('downloadIcon').addEventListener('click', () => {
             document.getElementById('presentationText').value = defaultPresentationText;
             document.getElementById('presentation-modal').style.display = 'flex';
@@ -999,18 +1073,100 @@ Laboratório LAMIC`;
         document.getElementById('cancel-presentation').onclick = () => document.getElementById('presentation-modal').style.display = 'none';
         
         document.getElementById('download-presentation').onclick = async () => {
-            const {jsPDF} = window.jspdf;
-            const doc = new jsPDF();
-            // Implementação simplificada do PDF para brevidade, mantendo a lógica original
-            doc.text("Proposta Lamic", 105, 20, {align:'center'});
-            const rows = Object.keys(selectedExams).map(ex => [
-                ex, 
-                selectedExams[ex].material, 
-                selectedExams[ex].prazo, 
-                `R$ ${parseFloat(normalizeDecimalInput(selectedExams[ex].proposta)).toFixed(2)}`
-            ]);
-            doc.autoTable({ head: [['Exame', 'Material', 'Prazo', 'Proposta']], body: rows, startY: 30 });
-            doc.save('Proposta.pdf');
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 40;
+            const logoUrl = document.getElementById('mainLogo').src;
+            const logoData = await getImageDataURL(logoUrl);
+            const presentationText = document.getElementById('presentationText').value || defaultPresentationText;
+            const title = 'Proposta Comercial - LAMIC';
+            let currentY = 50;
+
+            if (logoData) {
+                try {
+                    const imgProps = doc.getImageProperties(logoData);
+                    const logoWidth = 140;
+                    const logoHeight = (imgProps.height / imgProps.width) * logoWidth;
+                    doc.addImage(logoData, 'PNG', margin, currentY - 10, logoWidth, logoHeight);
+                } catch (err) {
+                    console.warn('Erro ao adicionar logo no PDF:', err);
+                }
+            }
+
+            doc.setFontSize(22);
+            doc.setTextColor('#1a2b5f');
+            doc.text(title, pageWidth - margin, currentY + 10, { align: 'right' });
+            currentY += 40;
+
+            doc.setLineWidth(1);
+            doc.setDrawColor('#1a2b5f');
+            doc.line(margin, currentY, pageWidth - margin, currentY);
+            currentY += 20;
+
+            doc.setFontSize(11);
+            doc.setTextColor('#333333');
+            const presentationLines = doc.splitTextToSize(presentationText, pageWidth - margin * 2);
+            doc.text(presentationLines, margin, currentY);
+            currentY += presentationLines.length * 16 + 10;
+
+            const rows = Object.keys(selectedExams).map(exame => {
+                const item = selectedExams[exame];
+                return [
+                    exame,
+                    item.material || '-',
+                    item.prazo || '-',
+                    `R$ ${parseFloat(normalizeDecimalInput(item.proposta || '0')).toFixed(2)}`,
+                    `R$ ${(useL2LCost ? item.custo2 : item.custo || 0).toFixed(2)}`
+                ];
+            });
+
+            if (rows.length > 0) {
+                doc.autoTable({
+                    startY: currentY,
+                    head: [[
+                        'Exame',
+                        'Material',
+                        'Prazo',
+                        'Proposta',
+                        'Custo'
+                    ]],
+                    body: rows,
+                    theme: 'grid',
+                    styles: { fontSize: 10, cellPadding: 6 },
+                    headStyles: { fillColor: '#1a2b5f', textColor: '#ffffff', halign: 'center' },
+                    alternateRowStyles: { fillColor: '#f6f8fc' },
+                    columnStyles: {
+                        0: { cellWidth: 150 },
+                        1: { cellWidth: 100 },
+                        2: { cellWidth: 80 },
+                        3: { cellWidth: 80 },
+                        4: { cellWidth: 80 }
+                    },
+                    didDrawPage: (data) => {
+                        const pageSize = doc.internal.pageSize;
+                        const pageHeight = pageSize.height;
+                        doc.setFontSize(9);
+                        doc.setTextColor('#666666');
+                        doc.text(`Página ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
+                    }
+                });
+                currentY = doc.lastAutoTable.finalY + 30;
+            } else {
+                doc.setFontSize(12);
+                doc.setTextColor('#555555');
+                doc.text('Nenhum exame selecionado.', margin, currentY);
+                currentY += 30;
+            }
+
+            const closingLines = doc.splitTextToSize(closingText, pageWidth - margin * 2);
+            const pageHeight = doc.internal.pageSize.getHeight();
+            if (currentY + closingLines.length * 14 > pageHeight - margin) {
+                doc.addPage();
+                currentY = margin;
+            }
+            doc.text(closingLines, margin, currentY);
+            doc.save('Proposta-Lamic.pdf');
             document.getElementById('presentation-modal').style.display = 'none';
         };
 
@@ -1029,7 +1185,7 @@ Laboratório LAMIC`;
                 const data = JSON.parse(ev.target.result);
                 selectedExams = data.selectedExams || {};
                 taxRate = data.taxRate || 8.1;
-                await saveToJsonBin();
+                saveLocalState();
                 location.reload();
             };
             reader.readAsText(e.target.files[0]);
