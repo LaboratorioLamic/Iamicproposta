@@ -499,6 +499,25 @@
             cursor: pointer;
         }
 
+        .slots-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 8px;
+        }
+        .slots-loading-overlay .loading-icon {
+            font-size: 32px;
+            color: #1a2b5f;
+            animation: spin 1s linear infinite;
+        }
+
         .file-input { display: none; }
 
         @media (max-width: 768px) {
@@ -529,8 +548,11 @@
     </div>
 
     <div class="modal" id="slots-modal">
-        <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-content" style="max-width: 450px; position: relative;">
             <h2>Gerenciar Salvos</h2>
+            <div class="slots-loading-overlay" id="slotsLoadingOverlay" style="display: none;">
+                <i class="fas fa-spinner loading-icon"></i>
+            </div>
             <button class="btn-add-slot" id="addSlotBtn"><i class="fas fa-plus"></i> Novo Slot</button>
             <div class="slots-list" id="slotsList">
                 </div>
@@ -726,9 +748,11 @@ Laboratório LAMIC`;
         }
 
         document.getElementById('openSlotsBtn').addEventListener('click', async () => {
+            document.getElementById('slots-modal').style.display = 'flex';
+            document.getElementById('slotsLoadingOverlay').style.display = 'flex';
             await loadSavedSlotsFromJsonBin();
             renderSlots();
-            document.getElementById('slots-modal').style.display = 'flex';
+            document.getElementById('slotsLoadingOverlay').style.display = 'none';
         });
 
         document.getElementById('addSlotBtn').addEventListener('click', async () => {
