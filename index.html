@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         body {
+            --accent-color: #1a2b5f;
             font-family: 'Roboto Slab', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f7fa;
             color: #333;
@@ -127,16 +128,51 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.92);
             display: flex;
             justify-content: center;
             align-items: center;
+            flex-direction: column;
+            gap: 24px;
             z-index: 1000;
+            padding: 20px;
         }
         .loading-icon {
             font-size: 64px;
             color: #2c3e50;
             animation: spin 1s linear infinite;
+        }
+        .loading-percentage-wrapper {
+            position: relative;
+            min-width: 140px;
+            min-height: 60px;
+            border-radius: 999px;
+            background: rgba(26, 43, 95, 0.08);
+            border: 1px solid rgba(26, 43, 95, 0.12);
+            box-shadow: 0 14px 30px rgba(26, 43, 95, 0.08);
+            overflow: hidden;
+        }
+        .loading-percentage-bar {
+            position: absolute;
+            inset: 0;
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(0, 212, 255, 0.35), rgba(26, 43, 95, 0.16));
+            transition: width 0.2s ease;
+        }
+        .loading-percentage {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            color: #1a2b5f;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            user-select: none;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -520,6 +556,30 @@
 
         .file-input { display: none; }
 
+        .loading-bar-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 999px;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.08);
+            overflow: hidden;
+            margin-top: 14px;
+        }
+        .loading-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-color), #00d4ff, var(--accent-color));
+            background-size: 200% 100%;
+            animation: shimmer 2s ease-in-out infinite;
+            border-radius: inherit;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.25);
+            transition: width 0.2s ease;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
         @media (max-width: 768px) {
             table { font-size: 14px; }
             .logo-container { position: relative; left: auto; top: auto; display: flex; justify-content: center; margin-bottom: 20px; }
@@ -544,6 +604,9 @@
             </div>
             <input type="password" id="password-input" placeholder="Digite a senha">
             <button id="password-submit"><span class="button-text">Entrar</span><span class="button-spinner"></span></button>
+            <div id="loading-bar-container" class="loading-bar-container" style="display: none;">
+                <div id="loading-bar" class="loading-bar"></div>
+            </div>
         </div>
     </div>
 
@@ -593,6 +656,10 @@
 
     <div class="loading-overlay" id="loadingOverlay">
         <i class="fas fa-spinner loading-icon"></i>
+        <div class="loading-percentage-wrapper">
+            <div class="loading-percentage-bar" id="loadingPercentageBar"></div>
+            <div class="loading-percentage" id="loadingPercentage">0%</div>
+        </div>
     </div>
 
     <table id="comparisonTable">
@@ -624,6 +691,11 @@
         let loginAttempts = 0;
         let isLocked = false;
         let useL2LCost = false;
+        let loadingAnimationId = null;
+        let loadingStartTime = null;
+        let loadingPercentageId = null;
+        let loadingPercentageStart = null;
+        const loadingDuration = 15000;
 
         const defaultPresentationText = `Ao (Nome fantasia e CNPJ)
 
@@ -848,30 +920,112 @@ Laboratório LAMIC`;
             }
         }
 
-        async function attemptLogin() {
+        function stopLoadingBar() {
+            if (loadingAnimationId !== null) {
+                cancelAnimationFrame(loadingAnimationId);
+                loadingAnimationId = null;
+            }
+        }
+
+        function hideLoadingBar(reset = true) {
+            stopLoadingBar();
+            const container = document.getElementById('loading-bar-container');
+            const bar = document.getElementById('loading-bar');
+            if (reset) {
+                bar.style.width = '0%';
+            }
+            container.style.display = 'none';
+        }
+
+        function updateLoadingBar(timestamp) {
+            if (loadingStartTime === null) {
+                loadingStartTime = timestamp;
+            }
+            const elapsed = Math.min(timestamp - loadingStartTime, loadingDuration);
+            const baseProgress = (elapsed / loadingDuration) * 98;
+            const variation = (Math.random() - 0.5) * 2 * (1 - elapsed / loadingDuration);
+            const progress = Math.min(98, Math.max(0, baseProgress + variation));
+            document.getElementById('loading-bar').style.width = `${progress}%`;
+            if (elapsed < loadingDuration) {
+                loadingAnimationId = requestAnimationFrame(updateLoadingBar);
+            }
+        }
+
+        function startLoadingBar() {
+            const container = document.getElementById('loading-bar-container');
+            const bar = document.getElementById('loading-bar');
+            container.style.display = 'block';
+            bar.style.width = '0%';
+            loadingStartTime = null;
+            stopLoadingBar();
+            loadingAnimationId = requestAnimationFrame(updateLoadingBar);
+        }
+
+        function stopLoadingPercentage() {
+            if (loadingPercentageId !== null) {
+                cancelAnimationFrame(loadingPercentageId);
+                loadingPercentageId = null;
+            }
+            loadingPercentageStart = null;
+        }
+
+        function setLoadingPercentage(value) {
+            const progress = Math.min(100, Math.max(0, value));
+            document.getElementById('loadingPercentage').textContent = `${progress}%`;
+            document.getElementById('loadingPercentageBar').style.width = `${progress}%`;
+        }
+
+        function updateLoadingPercentage(timestamp) {
+            if (loadingPercentageStart === null) {
+                loadingPercentageStart = timestamp;
+            }
+            const elapsed = Math.min(timestamp - loadingPercentageStart, loadingDuration);
+            const progress = Math.min(99, Math.floor((elapsed / loadingDuration) * 99));
+            setLoadingPercentage(progress);
+            if (elapsed < loadingDuration) {
+                loadingPercentageId = requestAnimationFrame(updateLoadingPercentage);
+            }
+        }
+
+        function startLoadingPercentage() {
+            setLoadingPercentage(0);
+            loadingPercentageStart = null;
+            stopLoadingPercentage();
+            loadingPercentageId = requestAnimationFrame(updateLoadingPercentage);
+        }
+
+        async function checkPassword() {
             if (isLocked) return;
             const passwordInput = document.getElementById('password-input');
             const password = passwordInput.value;
+            startLoadingBar();
             setPasswordButtonLoading(true);
+
             const isValid = await validatePassword(password);
             setPasswordButtonLoading(false);
+            stopLoadingBar();
 
             if (!isValid) {
+                hideLoadingBar();
                 loginAttempts++;
                 document.getElementById('modal-content').classList.add('error');
                 showWarning('Senha incorreta.');
                 if (loginAttempts >= 5) startLockout();
                 return;
             }
+
+            document.getElementById('loading-bar').style.width = '100%';
+            await new Promise(resolve => setTimeout(resolve, 800));
+            hideLoadingBar(false);
             hideModal();
             await loadData();
         }
 
-        document.getElementById('password-submit').addEventListener('click', attemptLogin);
+        document.getElementById('password-submit').addEventListener('click', checkPassword);
         document.getElementById('password-input').addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                attemptLogin();
+                checkPassword();
             }
         });
 
@@ -884,11 +1038,12 @@ Laboratório LAMIC`;
                 isLocked = false;
                 document.getElementById('lockout-message').style.display = 'none';
                 document.getElementById('progress-bar-container').style.display = 'none';
-            }, 10000);
+            }, 15000);
         }
 
         async function loadData() {
             document.getElementById('loadingOverlay').style.display = 'flex';
+            startLoadingPercentage();
             
             // Fetch Sheets Data
             try {
@@ -917,7 +1072,10 @@ Laboratório LAMIC`;
             updateConfigUI();
             
             initSearch();
+            setLoadingPercentage(100);
+            await new Promise(resolve => setTimeout(resolve, 250));
             document.getElementById('loadingOverlay').style.display = 'none';
+            stopLoadingPercentage();
         }
 
         // --- TABLE RENDER ---
@@ -935,6 +1093,7 @@ Laboratório LAMIC`;
                     <th>Imposto (%)</th>
                     <th>Desconto (%)</th>
                     <th>Margem (%)</th>
+                    <th>Lucro</th>
                     <th></th>
                 </tr>
                 <tr class="summary-row">
@@ -945,6 +1104,7 @@ Laboratório LAMIC`;
                     <td><input type="text" class="tax-input" value="${taxRate}" style="width: 60px;"></td>
                     <td id="totalDesconto">0.00%</td>
                     <td id="totalMargem">0.00%</td>
+                    <td id="totalLucro">R$ 0.00</td>
                     <td></td>
                 </tr>
             `;
@@ -969,6 +1129,7 @@ Laboratório LAMIC`;
                 const imposto = (propNum * taxRate / 100);
                 const margem = propNum > 0 ? ((propNum - imposto - currentCusto) / propNum * 100) : 0;
                 const desconto = data.valor > 0 ? ((data.valor - propNum) / data.valor * 100) : 0;
+                const lucro = propNum * margem / 100;
 
                 tCusto += currentCusto;
                 tValor += (data.valor || 0);
@@ -991,16 +1152,19 @@ Laboratório LAMIC`;
                     <td>R$ ${imposto.toFixed(2)}</td>
                     <td>${desconto.toFixed(2)}%</td>
                     <td>${margem.toFixed(2)}%</td>
+                    <td>R$ ${lucro.toFixed(2)}</td>
                     <td><i class="fas fa-trash delete-icon" onclick="removeExame('${exame}')"></i></td>
                 `;
                 body.appendChild(row);
             });
 
+            const tLucro = tMargemNominal;
             document.getElementById('totalCusto').textContent = `R$ ${tCusto.toFixed(2)}`;
             document.getElementById('totalValor').textContent = `R$ ${tValor.toFixed(2)}`;
             document.getElementById('totalProposta').textContent = `R$ ${tProposta.toFixed(2)}`;
             document.getElementById('totalDesconto').textContent = tValor > 0 ? `${((tValor - tProposta)/tValor*100).toFixed(2)}%` : '0.00%';
             document.getElementById('totalMargem').textContent = tPropMargem > 0 ? `${(tMargemNominal/tPropMargem*100).toFixed(2)}%` : '0.00%';
+            document.getElementById('totalLucro').textContent = `R$ ${tLucro.toFixed(2)}`;
 
             document.querySelectorAll('.proposta-input').forEach(input => {
                 input.addEventListener('blur', (e) => {
