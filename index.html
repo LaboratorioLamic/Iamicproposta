@@ -755,6 +755,9 @@ Laboratório LAMIC`;
                     marginThreshold = data.marginThreshold !== undefined ? data.marginThreshold : 15;
                     useL2LCost = data.useL2LCost !== undefined ? data.useL2LCost : false;
                     savedSlots = data.savedSlots || [];
+                    Object.keys(selectedExams).forEach(ex => {
+                        if (!selectedExams[ex].quantidade) selectedExams[ex].quantidade = 1;
+                    });
                 }
             } catch (err) {
                 console.warn('Erro ao carregar localmente:', err);
@@ -844,6 +847,9 @@ Laboratório LAMIC`;
         function loadSlot(index) {
             if (confirm(`Carregar proposta "${savedSlots[index].name}"? Isso substituirá os itens atuais.`)) {
                 selectedExams = JSON.parse(JSON.stringify(savedSlots[index].data));
+                Object.keys(selectedExams).forEach(ex => {
+                    if (!selectedExams[ex].quantidade) selectedExams[ex].quantidade = 1;
+                });
                 saveLocalState();
                 saveSlotsToJsonBin();
                 renderTable(Object.keys(selectedExams));
@@ -1089,6 +1095,7 @@ Laboratório LAMIC`;
                     <th>Prazo</th>
                     <th>Valor</th>
                     <th>Proposta</th>
+                    <th>Quantidade</th>
                     <th>Custo</th>
                     <th>Imposto (%)</th>
                     <th>Desconto (%)</th>
@@ -1100,6 +1107,7 @@ Laboratório LAMIC`;
                     <td colspan="3">Totais</td>
                     <td id="totalValor">R$ 0.00</td>
                     <td id="totalProposta">R$ 0.00</td>
+                    <td></td>
                     <td id="totalCusto">R$ 0.00</td>
                     <td><input type="text" class="tax-input" value="${taxRate}" style="width: 60px;"></td>
                     <td id="totalDesconto">0.00%</td>
@@ -1126,30 +1134,34 @@ Laboratório LAMIC`;
 
                 const currentCusto = useL2LCost ? (data.custo2 || 0) : (data.custo || 0);
                 const propNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
-                const imposto = (propNum * taxRate / 100);
-                const margem = propNum > 0 ? ((propNum - imposto - currentCusto) / propNum * 100) : 0;
-                const desconto = data.valor > 0 ? ((data.valor - propNum) / data.valor * 100) : 0;
-                const lucro = propNum * margem / 100;
+                const qty = parseInt(data.quantidade) || 1;
+                const valorTotal = (data.valor || 0) * qty;
+                const custoTotal = currentCusto * qty;
+                const impostoTotal = propNum * taxRate / 100;
+                const desconto = valorTotal > 0 ? ((valorTotal - propNum) / valorTotal * 100) : 0;
+                const margem = propNum > 0 ? ((propNum - impostoTotal - custoTotal) / propNum * 100) : 0;
+                const lucro = propNum - impostoTotal - custoTotal;
 
-                tCusto += currentCusto;
-                tValor += (data.valor || 0);
+                tCusto += custoTotal;
+                tValor += valorTotal;
                 tProposta += propNum;
-                if(propNum > 0) {
-                    tMargemNominal += (propNum - imposto - currentCusto);
+                if (propNum > 0) {
+                    tMargemNominal += propNum - impostoTotal - custoTotal;
                     tPropMargem += propNum;
                 }
 
                 const row = document.createElement('tr');
                 if (margem < marginThreshold) row.classList.add('low-margin');
-                
+
                 row.innerHTML = `
                     <td>${exame}</td>
                     <td>${data.material}</td>
                     <td>${data.prazo}</td>
-                    <td>R$ ${(data.valor || 0).toFixed(2)}</td>
+                    <td>R$ ${valorTotal.toFixed(2)}</td>
                     <td><input type="text" class="proposta-input" value="${data.proposta}" data-exame="${exame}"></td>
-                    <td>R$ ${currentCusto.toFixed(2)}</td>
-                    <td>R$ ${imposto.toFixed(2)}</td>
+                    <td><input type="number" class="quantidade-input" value="${qty}" min="1" data-exame="${exame}" style="width:60px;padding:5px;border:1px solid #ddd;border-radius:4px;font-size:14px;"></td>
+                    <td>R$ ${custoTotal.toFixed(2)}</td>
+                    <td>R$ ${impostoTotal.toFixed(2)}</td>
                     <td>${desconto.toFixed(2)}%</td>
                     <td>${margem.toFixed(2)}%</td>
                     <td>R$ ${lucro.toFixed(2)}</td>
@@ -1170,6 +1182,17 @@ Laboratório LAMIC`;
                 input.addEventListener('blur', (e) => {
                     const ex = e.target.dataset.exame;
                     selectedExams[ex].proposta = e.target.value;
+                    saveLocalState();
+                    renderTable(Object.keys(selectedExams));
+                });
+            });
+
+            document.querySelectorAll('.quantidade-input').forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    const ex = e.target.dataset.exame;
+                    let val = parseInt(e.target.value) || 1;
+                    if (val < 1) val = 1;
+                    selectedExams[ex].quantidade = val;
                     saveLocalState();
                     renderTable(Object.keys(selectedExams));
                 });
@@ -1201,7 +1224,7 @@ Laboratório LAMIC`;
                     item.textContent = ex;
                     item.onclick = () => {
                         if (!selectedExams[ex]) {
-                            selectedExams[ex] = { ...examsData[ex], proposta: '' };
+                            selectedExams[ex] = { ...examsData[ex], proposta: '', quantidade: 1 };
                             saveLocalState();
                             renderTable(Object.keys(selectedExams));
                             updateConfigUI();
@@ -1300,11 +1323,15 @@ Laboratório LAMIC`;
 
             const rows = Object.keys(selectedExams).map(exame => {
                 const item = selectedExams[exame];
+                const qty = parseInt(item.quantidade) || 1;
+                const propNum = parseFloat(normalizeDecimalInput(item.proposta || '0'));
                 return [
                     exame,
                     item.material || '-',
                     item.prazo || '-',
-                    `R$ ${parseFloat(normalizeDecimalInput(item.proposta || '0')).toFixed(2)}`
+                    `R$ ${propNum.toFixed(2)}`,
+                    qty,
+                    `R$ ${(propNum * qty).toFixed(2)}`
                 ];
             });
 
@@ -1315,7 +1342,9 @@ Laboratório LAMIC`;
                         'Exame',
                         'Material',
                         'Prazo',
-                        'Proposta'
+                        'Proposta (unit.)',
+                        'Qtd',
+                        'Total'
                     ]],
                     body: rows,
                     theme: 'grid',
@@ -1325,10 +1354,12 @@ Laboratório LAMIC`;
                     margin: { left: margin, right: margin },
                     tableWidth: 'auto',
                     columnStyles: {
-                        0: { cellWidth: 260 },
-                        1: { cellWidth: 90 },
-                        2: { cellWidth: 80 },
-                        3: { cellWidth: 80 }
+                        0: { cellWidth: 200 },
+                        1: { cellWidth: 80 },
+                        2: { cellWidth: 65 },
+                        3: { cellWidth: 75, halign: 'right' },
+                        4: { cellWidth: 30, halign: 'center' },
+                        5: { cellWidth: 65, halign: 'right' }
                     },
                     didDrawPage: (data) => {
                         const pageSize = doc.internal.pageSize;
