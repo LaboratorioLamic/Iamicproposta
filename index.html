@@ -1135,19 +1135,23 @@ Laboratório LAMIC`;
                 const currentCusto = useL2LCost ? (data.custo2 || 0) : (data.custo || 0);
                 const propNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
                 const qty = parseInt(data.quantidade) || 1;
-                const valorTotal = (data.valor || 0) * qty;
+                const valorUnitario = data.valor || 0;
+                const valorTotal = valorUnitario * qty;
+                const propostaTotal = propNum * qty;
                 const custoTotal = currentCusto * qty;
-                const impostoTotal = propNum * taxRate / 100;
-                const desconto = valorTotal > 0 ? ((valorTotal - propNum) / valorTotal * 100) : 0;
-                const margem = propNum > 0 ? ((propNum - impostoTotal - custoTotal) / propNum * 100) : 0;
-                const lucro = propNum - impostoTotal - custoTotal;
+                const impostoTotal = propostaTotal * taxRate / 100;
+                // Desconto deve ser calculado usando propostaTotal e valorTotal
+                const desconto = valorTotal > 0 ? ((valorTotal - propostaTotal) / valorTotal * 100) : 0;
+                // Margem deve ser calculada sobre a propostaTotal
+                const margem = propostaTotal > 0 ? ((propostaTotal - impostoTotal - custoTotal) / propostaTotal * 100) : 0;
+                const lucro = propostaTotal - impostoTotal - custoTotal;
 
                 tCusto += custoTotal;
                 tValor += valorTotal;
-                tProposta += propNum;
-                if (propNum > 0) {
-                    tMargemNominal += propNum - impostoTotal - custoTotal;
-                    tPropMargem += propNum;
+                tProposta += propostaTotal;
+                if (propostaTotal > 0) {
+                    tMargemNominal += propostaTotal - impostoTotal - custoTotal;
+                    tPropMargem += propostaTotal;
                 }
 
                 const row = document.createElement('tr');
@@ -1157,7 +1161,7 @@ Laboratório LAMIC`;
                     <td>${exame}</td>
                     <td>${data.material}</td>
                     <td>${data.prazo}</td>
-                    <td>R$ ${valorTotal.toFixed(2)}</td>
+                    <td>R$ ${valorUnitario.toFixed(2)}</td>
                     <td><input type="text" class="proposta-input" value="${data.proposta}" data-exame="${exame}"></td>
                     <td><input type="number" class="quantidade-input" value="${qty}" min="1" data-exame="${exame}" style="width:60px;padding:5px;border:1px solid #ddd;border-radius:4px;font-size:14px;"></td>
                     <td>R$ ${custoTotal.toFixed(2)}</td>
