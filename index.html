@@ -35,6 +35,7 @@
             max-width: 600px;
             margin-bottom: 20px;
             display: none;
+            z-index: 40;
         }
         #searchInput {
             width: 100%;
@@ -53,7 +54,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            z-index: 10;
+            z-index: 50;
             display: none;
         }
         .autocomplete-item {
@@ -580,13 +581,248 @@
             100% { background-position: 200% 0; }
         }
 
+        /* Cards mobile */
+        #cardsContainer {
+            display: none;
+            width: 100%;
+            max-width: 700px;
+            margin-top: 20px;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .exam-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(26,43,95,0.10);
+            padding: 18px 18px 14px;
+            position: relative;
+            border-left: 5px solid #1a2b5f;
+            transition: box-shadow 0.2s;
+        }
+        .exam-card.low-margin {
+            border-left-color: #e74c3c;
+            background: #fff8f8;
+        }
+        .exam-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            gap: 8px;
+        }
+        .exam-card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a2b5f;
+            line-height: 1.3;
+            flex: 1;
+        }
+        .exam-card .delete-icon {
+            font-size: 16px;
+            padding: 4px;
+            flex-shrink: 0;
+        }
+        .exam-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .exam-card-badge {
+            background: #eef2ff;
+            color: #1a2b5f;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .exam-card-badge.prazo {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .exam-card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 14px;
+        }
+        .exam-card-field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .exam-card-field label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .exam-card-field .field-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #222;
+        }
+        .exam-card-field .field-value.highlight {
+            color: #1a2b5f;
+        }
+        .exam-card-field .field-value.low {
+            color: #e74c3c;
+        }
+        .exam-card-field input.proposta-input,
+        .exam-card-field input.quantidade-input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1.5px solid #d0d7e8;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a2b5f;
+            background: #f4f7fa;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .exam-card-field input.proposta-input:focus,
+        .exam-card-field input.quantidade-input:focus {
+            border-color: #1a2b5f;
+            background: #fff;
+        }
+
+        /* Summary card */
+        .summary-card {
+            background: linear-gradient(135deg, #1a2b5f 0%, #243a82 100%);
+            border-radius: 16px;
+            padding: 18px;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(26,43,95,0.18);
+        }
+        .summary-card-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            opacity: 0.75;
+            margin-bottom: 14px;
+        }
+        .summary-card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 14px;
+        }
+        .summary-card-field label {
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .summary-card-field .field-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .summary-card-tax {
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .summary-card-tax label {
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+        .summary-card-tax input {
+            width: 70px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a2b5f;
+            background: rgba(255,255,255,0.92);
+        }
+
         @media (max-width: 768px) {
-            table { font-size: 14px; }
-            .logo-container { position: relative; left: auto; top: auto; display: flex; justify-content: center; margin-bottom: 20px; }
-            .logo-container img { width: 200px; }
-            .margin-limit-container, .l2l-checkbox-container { position: relative; top: auto; right: auto; margin: 10px auto; }
-            .action-buttons { flex-direction: column; align-items: center; }
-            .reset-btn, .export-btn, .import-btn, .slots-btn { width: 100%; max-width: 300px; }
+            body {
+                padding: 12px 10px 30px;
+                align-items: stretch;
+            }
+            h1 {
+                text-align: center;
+                font-size: 0.85rem;
+                margin-bottom: 8px;
+            }
+
+            /* Logo: inline no topo, não absoluta */
+            .logo-container {
+                position: relative;
+                left: auto;
+                top: auto;
+                display: flex;
+                justify-content: center;
+                margin-bottom: 14px;
+            }
+            .logo-container img { width: 140px; }
+
+            /* Busca full-width */
+            .search-container {
+                max-width: 100%;
+                margin-bottom: 14px;
+            }
+
+            /* Controles em linha, abaixo da busca */
+            .l2l-checkbox-container,
+            .margin-limit-container {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin: 0;
+                display: flex !important;
+                flex: 1;
+                min-width: 120px;
+            }
+
+            /* Agrupa os dois controles lado a lado */
+            .controls-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                justify-content: center;
+                width: 100%;
+                margin-bottom: 12px;
+            }
+
+            /* Tabela oculta */
+            table { display: none !important; }
+
+            /* Cards visíveis */
+            #cardsContainer {
+                display: flex;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            /* Botões de ação */
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                margin-top: 18px;
+            }
+            .reset-btn, .export-btn, .import-btn, .slots-btn {
+                width: 100%;
+                max-width: 340px;
+                font-size: 15px;
+                padding: 13px 16px;
+            }
+        }
+
+        @media (min-width: 769px) {
+            #cardsContainer { display: none !important; }
+            .controls-row { display: contents; }
         }
     </style>
 </head>
@@ -644,14 +880,16 @@
         <i class="fas fa-spinner loading-download" id="loadingDownloadIcon"></i>
     </div>
 
-    <div class="l2l-checkbox-container">
-        <label for="l2lCheckbox">L2L</label>
-        <input type="checkbox" id="l2lCheckbox">
-    </div>
+    <div class="controls-row">
+        <div class="l2l-checkbox-container">
+            <label for="l2lCheckbox">L2L</label>
+            <input type="checkbox" id="l2lCheckbox">
+        </div>
 
-    <div class="margin-limit-container">
-        <label for="marginLimitInput">Margem (%)</label>
-        <input type="text" id="marginLimitInput" class="margin-input" value="15" placeholder="%">
+        <div class="margin-limit-container">
+            <label for="marginLimitInput">Margem (%)</label>
+            <input type="text" id="marginLimitInput" class="margin-input" value="15" placeholder="%">
+        </div>
     </div>
 
     <div class="loading-overlay" id="loadingOverlay">
@@ -666,6 +904,8 @@
         <thead id="tableHeader"></thead>
         <tbody id="tableBody"></tbody>
     </table>
+
+    <div id="cardsContainer"></div>
 
     <div class="action-buttons">
         <button class="slots-btn" id="openSlotsBtn">Salvos</button>
@@ -850,7 +1090,7 @@ Laboratório LAMIC`;
                 });
                 saveLocalState();
                 saveSlotsToJsonBin();
-                renderTable(Object.keys(selectedExams));
+                renderAll();
                 document.getElementById('slots-modal').style.display = 'none';
                 showWarning("Proposta carregada!");
             }
@@ -1064,7 +1304,7 @@ Laboratório LAMIC`;
             loadLocalState();
             await loadSavedSlotsFromJsonBin();
             renderTableHeader();
-            renderTable(Object.keys(selectedExams));
+            renderAll();
             updateConfigUI();
             
             initSearch();
@@ -1109,7 +1349,7 @@ Laboratório LAMIC`;
             document.querySelector('.tax-input').addEventListener('blur', (e) => {
                 taxRate = parseFloat(normalizeDecimalInput(e.target.value)) || 0;
                 saveLocalState();
-                renderTable(Object.keys(selectedExams));
+                renderAll();
             });
         }
 
@@ -1177,7 +1417,7 @@ Laboratório LAMIC`;
                     const ex = e.target.dataset.exame;
                     selectedExams[ex].proposta = e.target.value;
                     saveLocalState();
-                    renderTable(Object.keys(selectedExams));
+                    renderAll();
                 });
             });
 
@@ -1188,15 +1428,169 @@ Laboratório LAMIC`;
                     if (val < 1) val = 1;
                     selectedExams[ex].quantidade = val;
                     saveLocalState();
-                    renderTable(Object.keys(selectedExams));
+                    renderAll();
                 });
             });
+        }
+
+        function renderCards(exams) {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            let tCusto = 0, tValor = 0, tProposta = 0, tMargemNominal = 0, tPropMargem = 0;
+
+            exams.forEach(exame => {
+                const data = selectedExams[exame];
+                if (!data) return;
+
+                const currentCusto = useL2LCost ? (data.custo2 || 0) : (data.custo || 0);
+                const propNum = parseFloat(normalizeDecimalInput(data.proposta)) || 0;
+                const qty = parseInt(data.quantidade) || 1;
+                const valorUnitario = data.valor || 0;
+                const valorTotal = valorUnitario * qty;
+                const propostaTotal = propNum * qty;
+                const custoTotal = currentCusto * qty;
+                const impostoTotal = propostaTotal * taxRate / 100;
+                const desconto = valorTotal > 0 ? ((valorTotal - propostaTotal) / valorTotal * 100) : 0;
+                const margem = propostaTotal > 0 ? ((propostaTotal - impostoTotal - custoTotal) / propostaTotal * 100) : 0;
+                const lucro = propostaTotal - impostoTotal - custoTotal;
+
+                tCusto += custoTotal;
+                tValor += valorTotal;
+                tProposta += propostaTotal;
+                if (propostaTotal > 0) {
+                    tMargemNominal += propostaTotal - impostoTotal - custoTotal;
+                    tPropMargem += propostaTotal;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'exam-card' + (margem < marginThreshold && propNum > 0 ? ' low-margin' : '');
+                card.innerHTML = `
+                    <div class="exam-card-header">
+                        <div class="exam-card-title">${exame}</div>
+                        <i class="fas fa-trash delete-icon" onclick="removeExame('${exame}')"></i>
+                    </div>
+                    <div class="exam-card-meta">
+                        <span class="exam-card-badge">${data.material || '—'}</span>
+                        <span class="exam-card-badge prazo"><i class="fas fa-clock" style="margin-right:4px;font-size:10px;"></i>${data.prazo || '—'}</span>
+                    </div>
+                    <div class="exam-card-grid">
+                        <div class="exam-card-field">
+                            <label>Quantidade</label>
+                            <input type="number" class="quantidade-input" value="${qty}" min="1" data-exame="${exame}">
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Proposta</label>
+                            <input type="text" class="proposta-input" value="${data.proposta}" data-exame="${exame}" placeholder="0,00">
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Valor</label>
+                            <div class="field-value">R$ ${valorUnitario.toFixed(2)}</div>
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Custo Total</label>
+                            <div class="field-value">R$ ${custoTotal.toFixed(2)}</div>
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Desconto</label>
+                            <div class="field-value${desconto > 0 ? ' highlight' : ''}">${desconto.toFixed(2)}%</div>
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Margem</label>
+                            <div class="field-value${margem < marginThreshold && propNum > 0 ? ' low' : ' highlight'}">${margem.toFixed(2)}%</div>
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Imposto</label>
+                            <div class="field-value">R$ ${impostoTotal.toFixed(2)}</div>
+                        </div>
+                        <div class="exam-card-field">
+                            <label>Lucro</label>
+                            <div class="field-value${lucro < 0 ? ' low' : ' highlight'}">R$ ${lucro.toFixed(2)}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Summary card
+            const totalDesconto = tValor > 0 ? ((tValor - tProposta) / tValor * 100) : 0;
+            const totalMargem = tPropMargem > 0 ? (tMargemNominal / tPropMargem * 100) : 0;
+
+            const summaryCard = document.createElement('div');
+            summaryCard.className = 'summary-card';
+            summaryCard.innerHTML = `
+                <div class="summary-card-title">Totais da Proposta</div>
+                <div class="summary-card-grid">
+                    <div class="summary-card-field">
+                        <label>Valor Total</label>
+                        <div class="field-value" id="cardTotalValor">R$ ${tValor.toFixed(2)}</div>
+                    </div>
+                    <div class="summary-card-field">
+                        <label>Proposta Total</label>
+                        <div class="field-value" id="cardTotalProposta">R$ ${tProposta.toFixed(2)}</div>
+                    </div>
+                    <div class="summary-card-field">
+                        <label>Custo Total</label>
+                        <div class="field-value" id="cardTotalCusto">R$ ${tCusto.toFixed(2)}</div>
+                    </div>
+                    <div class="summary-card-field">
+                        <label>Lucro Total</label>
+                        <div class="field-value" id="cardTotalLucro">R$ ${tMargemNominal.toFixed(2)}</div>
+                    </div>
+                    <div class="summary-card-field">
+                        <label>Desconto Médio</label>
+                        <div class="field-value">${totalDesconto.toFixed(2)}%</div>
+                    </div>
+                    <div class="summary-card-field">
+                        <label>Margem Média</label>
+                        <div class="field-value">${totalMargem.toFixed(2)}%</div>
+                    </div>
+                </div>
+                <div class="summary-card-tax">
+                    <label>Imposto (%):</label>
+                    <input type="text" class="tax-input-card" value="${taxRate}" style="width:70px;padding:6px 8px;border-radius:8px;border:none;font-size:14px;font-weight:600;color:#1a2b5f;background:rgba(255,255,255,0.92);">
+                </div>
+            `;
+            container.appendChild(summaryCard);
+
+            container.querySelectorAll('.proposta-input').forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    const ex = e.target.dataset.exame;
+                    selectedExams[ex].proposta = e.target.value;
+                    saveLocalState();
+                    renderAll();
+                });
+            });
+            container.querySelectorAll('.quantidade-input').forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    const ex = e.target.dataset.exame;
+                    let val = parseInt(e.target.value) || 1;
+                    if (val < 1) val = 1;
+                    selectedExams[ex].quantidade = val;
+                    saveLocalState();
+                    renderAll();
+                });
+            });
+            const taxCardInput = container.querySelector('.tax-input-card');
+            if (taxCardInput) {
+                taxCardInput.addEventListener('blur', (e) => {
+                    taxRate = parseFloat(normalizeDecimalInput(e.target.value)) || 0;
+                    saveLocalState();
+                    renderAll();
+                });
+            }
+        }
+
+        function renderAll() {
+            const keys = Object.keys(selectedExams);
+            renderTable(keys);
+            renderCards(keys);
         }
 
         function removeExame(exame) {
             delete selectedExams[exame];
             saveLocalState();
-            renderTable(Object.keys(selectedExams));
+            renderAll();
             updateConfigUI();
         }
 
@@ -1220,7 +1614,7 @@ Laboratório LAMIC`;
                         if (!selectedExams[ex]) {
                             selectedExams[ex] = { ...examsData[ex], proposta: '', quantidade: 1 };
                             saveLocalState();
-                            renderTable(Object.keys(selectedExams));
+                            renderAll();
                             updateConfigUI();
                         }
                         input.value = '';
@@ -1235,13 +1629,13 @@ Laboratório LAMIC`;
         document.getElementById('marginLimitInput').addEventListener('blur', (e) => {
             marginThreshold = parseFloat(e.target.value) || 0;
             saveLocalState();
-            renderTable(Object.keys(selectedExams));
+            renderAll();
         });
 
         document.getElementById('l2lCheckbox').addEventListener('change', (e) => {
             useL2LCost = e.target.checked;
             saveLocalState();
-            renderTable(Object.keys(selectedExams));
+            renderAll();
         });
 
         document.getElementById('resetBtn').addEventListener('click', async () => {
@@ -1249,6 +1643,7 @@ Laboratório LAMIC`;
                 selectedExams = {};
                 saveLocalState();
                 renderTable([]);
+                renderCards([]);
                 updateConfigUI();
             }
         });
