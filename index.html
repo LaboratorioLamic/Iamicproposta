@@ -285,6 +285,61 @@
             animation: fadeIn 0.3s ease-in-out;
             font-family: 'Inter', sans-serif;
         }
+        .modal-content-confirm {
+            background: linear-gradient(160deg, #fff8e1, #ffffff);
+            padding: 28px 24px;
+            border: 2px solid #f5a623;
+            border-radius: 14px;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 0.3s ease-in-out;
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+        }
+        .confirm-icon {
+            font-size: 38px;
+            color: #f5a623;
+            margin-bottom: 10px;
+        }
+        .modal-content-confirm h2 {
+            font-size: clamp(1.1em, 2.5vw, 1.3em);
+            font-weight: 700;
+            color: #1a2b5f;
+            margin-bottom: 10px;
+        }
+        .modal-content-confirm p {
+            font-size: 0.95em;
+            color: #444;
+            margin-bottom: 22px;
+            line-height: 1.4;
+        }
+        .confirm-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+        .confirm-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+        .confirm-buttons button:hover {
+            transform: translateY(-1px);
+            opacity: 0.92;
+        }
+        .confirm-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        .confirm-ok {
+            background: linear-gradient(135deg, #f5a623, #e8901a);
+            color: white;
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -383,9 +438,9 @@
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: clamp(0.9em, 2vw, 1em);
+            font-size: clamp(0.85em, 2vw, 1em);
             font-weight: 600;
-            width: 48%;
+            width: 31%;
             margin: 1%;
             transition: background-color 0.3s ease;
         }
@@ -407,6 +462,14 @@
         }
         .modal-content-presentation button.download:hover {
             background-color: #1068c0;
+            color: white;
+        }
+        .modal-content-presentation button.save {
+            background: linear-gradient(135deg, #f5a623, #e8901a);
+            color: white;
+        }
+        .modal-content-presentation button.save:hover {
+            background: linear-gradient(135deg, #ffb83d, #f5a623);
             color: white;
         }
         .modal-content button:disabled {
@@ -863,7 +926,19 @@
         <div class="modal-content-presentation">
             <h2>Editar Texto de Apresentação</h2>
             <textarea id="presentationText"></textarea>
-            <button class="cancel" id="cancel-presentation">Cancelar</button><button class="download" id="download-presentation">Baixar</button>
+            <button class="cancel" id="cancel-presentation">Cancelar</button><button class="save" id="save-presentation">Salvar</button><button class="download" id="download-presentation">Baixar</button>
+        </div>
+    </div>
+
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content-confirm">
+            <i class="fas fa-triangle-exclamation confirm-icon"></i>
+            <h2 id="confirm-title">Confirmar ação</h2>
+            <p id="confirm-message"></p>
+            <div class="confirm-buttons">
+                <button class="confirm-cancel" id="confirm-cancel-btn">Cancelar</button>
+                <button class="confirm-ok" id="confirm-ok-btn">Confirmar</button>
+            </div>
         </div>
     </div>
 
@@ -924,6 +999,7 @@
         let examsData = {};
         let selectedExams = {};
         let savedSlots = [];
+        let currentPresentationText = '';
         let taxRate = 8.10;
         let marginThreshold = 15;
         let loginAttempts = 0;
@@ -1073,7 +1149,8 @@ Laboratório LAMIC`;
             if (name) {
                 savedSlots.push({
                     name: name,
-                    data: JSON.parse(JSON.stringify(selectedExams))
+                    data: JSON.parse(JSON.stringify(selectedExams)),
+                    presentationText: currentPresentationText || defaultPresentationText
                 });
                 saveLocalState();
                 await saveSlotsToJsonBin();
@@ -1082,27 +1159,54 @@ Laboratório LAMIC`;
             }
         });
 
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            modal.style.display = 'flex';
+
+            const okBtn = document.getElementById('confirm-ok-btn');
+            const cancelBtn = document.getElementById('confirm-cancel-btn');
+
+            const close = () => { modal.style.display = 'none'; };
+
+            okBtn.onclick = () => { close(); onConfirm(); };
+            cancelBtn.onclick = close;
+        }
+
         function loadSlot(index) {
-            if (confirm(`Carregar proposta "${savedSlots[index].name}"? Isso substituirá os itens atuais.`)) {
-                selectedExams = JSON.parse(JSON.stringify(savedSlots[index].data));
-                Object.keys(selectedExams).forEach(ex => {
-                    if (!selectedExams[ex].quantidade) selectedExams[ex].quantidade = 1;
-                });
-                saveLocalState();
-                saveSlotsToJsonBin();
-                renderAll();
-                document.getElementById('slots-modal').style.display = 'none';
-                showWarning("Proposta carregada!");
-            }
+            showConfirm(
+                "Carregar proposta",
+                `Carregar a proposta "${savedSlots[index].name}"? Isso substituirá os itens atuais da tela.`,
+                () => {
+                    selectedExams = JSON.parse(JSON.stringify(savedSlots[index].data));
+                    Object.keys(selectedExams).forEach(ex => {
+                        if (!selectedExams[ex].quantidade) selectedExams[ex].quantidade = 1;
+                    });
+                    currentPresentationText = savedSlots[index].presentationText || defaultPresentationText;
+                    document.getElementById('presentationText').value = currentPresentationText;
+                    saveLocalState();
+                    saveSlotsToJsonBin();
+                    renderAll();
+                    updateConfigUI();
+                    document.getElementById('slots-modal').style.display = 'none';
+                    showWarning("Proposta carregada!");
+                }
+            );
         }
 
         function overwriteSlot(index) {
-            if (confirm(`Deseja sobrescrever o slot "${savedSlots[index].name}" com os dados da tela?`)) {
-                savedSlots[index].data = JSON.parse(JSON.stringify(selectedExams));
-                saveLocalState();
-                saveSlotsToJsonBin();
-                showWarning("Slot atualizado!");
-            }
+            showConfirm(
+                "Sobrescrever slot",
+                `Os dados salvos em "${savedSlots[index].name}" serão substituídos pelos dados atuais da tela. Deseja continuar?`,
+                () => {
+                    savedSlots[index].data = JSON.parse(JSON.stringify(selectedExams));
+                    savedSlots[index].presentationText = currentPresentationText || defaultPresentationText;
+                    saveLocalState();
+                    saveSlotsToJsonBin();
+                    showWarning("Slot atualizado!");
+                }
+            );
         }
 
         function deleteSlot(index) {
@@ -1666,13 +1770,20 @@ Laboratório LAMIC`;
         }
 
         document.getElementById('downloadIcon').addEventListener('click', () => {
-            document.getElementById('presentationText').value = defaultPresentationText;
+            document.getElementById('presentationText').value = currentPresentationText || defaultPresentationText;
             document.getElementById('presentation-modal').style.display = 'flex';
         });
 
         document.getElementById('cancel-presentation').onclick = () => document.getElementById('presentation-modal').style.display = 'none';
-        
+
+        document.getElementById('save-presentation').onclick = () => {
+            currentPresentationText = document.getElementById('presentationText').value || defaultPresentationText;
+            saveLocalState();
+            showWarning("Texto de apresentação salvo!");
+        };
+
         document.getElementById('download-presentation').onclick = async () => {
+            currentPresentationText = document.getElementById('presentationText').value || defaultPresentationText;
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ unit: 'pt', format: 'a4' });
             const pageWidth = doc.internal.pageSize.getWidth();
